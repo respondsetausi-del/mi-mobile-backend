@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import Constants from 'expo-constants';
 
-const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || '';
 
 export default function TestAdmin() {
   const [result, setResult] = useState('');

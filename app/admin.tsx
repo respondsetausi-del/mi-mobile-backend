@@ -24,8 +24,7 @@ import Constants from 'expo-constants';
 import ConfirmModal from '../components/ConfirmModal';
 
 const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || 
-                process.env.EXPO_PUBLIC_BACKEND_URL || 
-                'https://mi-mobile.preview.emergentagent.com';
+                'https://mi-indicator.preview.emergentagent.com';
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<any>(null);

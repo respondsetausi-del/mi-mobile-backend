@@ -4,6 +4,7 @@ import {
   Text,
   StyleSheet,
   ImageBackground,
+  Image,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
@@ -551,6 +552,11 @@ export default function HomeScreen() {
               <View style={styles.topSection}>
                 <View style={styles.titleSection}>
                   <View style={styles.logoContainer}>
+                    <Image 
+                      source={require('../../assets/images/logo_home.png')} 
+                      style={styles.logoImage}
+                      resizeMode="contain"
+                    />
                     <Text style={[styles.logoText, { textShadowColor: theme.accent }]}>{systemName}</Text>
                   </View>
                   
@@ -881,15 +887,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 12,
   },
+  logoImage: {
+    width: 120,
+    height: 120,
+    marginBottom: 8,
+  },
   logoText: {
-    fontSize: 36,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#00D9FF',
     textAlign: 'center',
     textShadowColor: '#00D9FF',
     textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 25,
-    letterSpacing: 3,
+    textShadowRadius: 15,
+    letterSpacing: 2,
   },
   eaInfo: { 
     marginTop: 24, 

@@ -15,7 +15,7 @@ import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 import ConfirmModal from '../components/ConfirmModal';
 
-const API_URL = Constants.expoConfig?.extra?.backendUrl || process.env.EXPO_PUBLIC_BACKEND_URL;
+const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || '';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -31,7 +31,6 @@ export default function LoginScreen() {
   useEffect(() => {
     console.log('=== LOGIN SCREEN LOADED ===');
     console.log('API_URL:', API_URL);
-    console.log('Environment:', process.env.EXPO_PUBLIC_BACKEND_URL);
   }, []);
 
   const handleLogin = async () => {
@@ -236,14 +235,10 @@ export default function LoginScreen() {
           {!isAdmin && (
             <>
               <TouchableOpacity 
-                onPress={() => router.push('/forgot-password')}
-                style={styles.forgotPasswordLink}
+                onPress={goToRegister}
+                style={styles.createAccountButton}
               >
-                <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={goToRegister}>
-                <Text style={styles.linkText}>Don't have an account? Register</Text>
+                <Text style={styles.createAccountText}>Create Account</Text>
               </TouchableOpacity>
 
               <TouchableOpacity onPress={goToMentorLogin}>
@@ -361,21 +356,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  forgotPasswordLink: {
-    alignSelf: 'flex-end',
+  createAccountButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 2,
+    borderColor: '#00D9FF',
+    borderRadius: 8,
+    height: 50,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginTop: 8,
-    marginBottom: 8,
+    marginBottom: 16,
   },
-  forgotPasswordText: {
+  createAccountText: {
     color: '#00D9FF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  linkText: {
-    color: '#8892b0',
-    textAlign: 'center',
-    marginTop: 16,
-    fontSize: 14,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   mentorLinkText: {
     color: '#00D9FF',

@@ -21,8 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 import Slider from '@react-native-community/slider';
 import Constants from 'expo-constants';
 
-const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || 
-                process.env.EXPO_PUBLIC_BACKEND_URL;
+const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || '';
 
 export default function MentorDashboard() {
   const [loading, setLoading] = useState(true);
@@ -537,6 +536,7 @@ export default function MentorDashboard() {
   };
 
   const deleteIndicator = async (indicatorId) => {
+    console.log('🗑️ Delete button clicked for indicator:', indicatorId);
     Alert.alert(
       'Confirm Delete',
       'Are you sure you want to delete this indicator? Users following it will be unlinked.',
@@ -547,20 +547,30 @@ export default function MentorDashboard() {
           style: 'destructive',
           onPress: async () => {
             try {
+              console.log('🗑️ Confirmed delete for:', indicatorId);
               const token = await AsyncStorage.getItem('mentorToken');
-              const response = await fetch(`${API_URL}/api/mentor/delete-indicator/${indicatorId}`, {
+              console.log('🗑️ Token retrieved:', token ? 'exists' : 'missing');
+              
+              const url = `${API_URL}/api/mentor/delete-indicator/${indicatorId}`;
+              console.log('🗑️ DELETE URL:', url);
+              
+              const response = await fetch(url, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${token}` },
               });
 
+              console.log('🗑️ Response status:', response.status);
               const data = await response.json();
+              console.log('🗑️ Response data:', data);
+              
               if (response.ok) {
                 Alert.alert('Success', 'Indicator deleted successfully');
-                loadCustomIndicators(); // Reload list
+                await loadCustomIndicators(); // Reload list
               } else {
                 throw new Error(data.detail || 'Failed to delete indicator');
               }
             } catch (error) {
+              console.error('🗑️ Delete error:', error);
               Alert.alert('Error', error.message || 'Failed to delete indicator');
             }
           },
@@ -1753,7 +1763,10 @@ export default function MentorDashboard() {
                 </View>
               ) : (
                 <View style={{ marginTop: 16 }}>
-                  {customIndicators.map((indicator) => (
+                  <Text style={{ color: '#0f0', marginBottom: 8 }}>DEBUG: Found {customIndicators.length} indicators</Text>
+                  {customIndicators.map((indicator, index) => {
+                    console.log(`📊 Rendering indicator ${index}:`, indicator.id, indicator.name);
+                    return (
                     <View key={indicator.id} style={styles.indicatorCard}>
                       <View style={styles.indicatorHeader}>
                         <View style={{ flex: 1 }}>
@@ -1766,8 +1779,14 @@ export default function MentorDashboard() {
                           </Text>
                         </View>
                         <TouchableOpacity
-                          onPress={() => deleteIndicator(indicator.id)}
+                          onPress={() => {
+                            console.log('🗑️ Trash button pressed!', indicator.id);
+                            Alert.alert('Test', 'Button clicked! ID: ' + indicator.id);
+                            deleteIndicator(indicator.id);
+                          }}
                           style={styles.deleteIconButton}
+                          activeOpacity={0.6}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                         >
                           <Ionicons name="trash" size={20} color="#FF4444" />
                         </TouchableOpacity>
@@ -1889,7 +1908,8 @@ export default function MentorDashboard() {
                         </View>
                       )}
                     </View>
-                  ))}
+                  );
+                  })}
                 </View>
               )}
             </View>
@@ -2556,7 +2576,15 @@ const styles = StyleSheet.create({
   indicatorName: { color: '#fff', fontSize: 16, fontWeight: 'bold', marginBottom: 4 },
   indicatorDescription: { color: '#888', fontSize: 13, marginBottom: 4 },
   indicatorUpdated: { color: '#666', fontSize: 11 },
-  deleteIconButton: { padding: 4 },
+  deleteIconButton: { 
+    padding: 8,
+    backgroundColor: 'rgba(255, 68, 68, 0.1)',
+    borderRadius: 6,
+    minWidth: 36,
+    minHeight: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   signalButtonContainer: { marginTop: 8 },
   signalLabel: { color: '#888', fontSize: 13, marginBottom: 8 },
   signalButtons: { flexDirection: 'row', gap: 8 },

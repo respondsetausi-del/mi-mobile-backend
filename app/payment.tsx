@@ -12,7 +12,7 @@ import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
-const BACKEND_URL = Constants.expoConfig?.extra?.backendUrl || process.env.EXPO_PUBLIC_BACKEND_URL;
+const BACKEND_URL = Constants.expoConfig?.extra?.backendUrl || Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || '';
 
 export default function PaymentScreen() {
   const router = useRouter();
@@ -34,7 +34,7 @@ export default function PaymentScreen() {
       }
 
       // Construct proper URLs
-      // BACKEND_URL is the base (e.g., https://mi-mobile.preview.emergentagent.com)
+      // BACKEND_URL is the base (e.g., https://mi-indicator.preview.emergentagent.com)
       const baseUrl = BACKEND_URL;
       const apiUrl = `${baseUrl}/api`;
       const originUrl = baseUrl; // For Stripe redirect URLs

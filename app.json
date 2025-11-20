@@ -7,7 +7,10 @@
     "icon": "./assets/images/icon.png",
     "scheme": "mimobile",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
+    "androidStatusBar": {
+      "backgroundColor": "#000000"
+    },
     "splash": {
       "image": "./assets/images/splash-icon.png",
       "resizeMode": "contain",
@@ -33,8 +36,7 @@
         "ACCESS_NETWORK_STATE",
         "VIBRATE",
         "RECEIVE_BOOT_COMPLETED"
-      ],
-      "edgeToEdgeEnabled": true
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -51,18 +53,20 @@
           "resizeMode": "contain",
           "backgroundColor": "#000"
         }
-      ]
+      ],
+      "expo-font",
+      "expo-web-browser"
     ],
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "EXPO_PUBLIC_BACKEND_URL": "https://mi-mobile.preview.emergentagent.com",
+      "EXPO_PUBLIC_BACKEND_URL": "https://mi-indicator.preview.emergentagent.com",
       "router": {},
       "eas": {
-        "projectId": "37617ef7-fb30-432e-b7f7-5d505a960fa5"
+        "projectId": "367149c1-6526-44e3-b54f-feeababa3ec0"
       }
     },
-    "owner": "arizefx"
+    "owner": "forexaura"
   }
 }

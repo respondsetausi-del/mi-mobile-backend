@@ -129,27 +129,18 @@ export default function AddEAModal({ visible, symbol, onClose, onSuccess }: AddE
       if (isMentorIndicator) {
         // Subscribe to mentor indicator
         await subscribeToIndicator(isMentorIndicator.id, symbol, timeframe);
+        Alert.alert('Success', `${symbol} indicator subscribed successfully!`);
       } else {
-        // Add regular EA
-        await addEA({
-          name: `${symbol} ${indicatorType} Bot`,
-          config: {
-            symbol,
-            timeframe,
-            indicator: {
-              type: indicatorType,
-              parameters: indicatorParams,
-            },
-          },
-        });
+        // Add regular EA - call with correct parameter signature
+        await addEA(symbol, timeframe, indicatorType, indicatorParams);
+        Alert.alert('Success', `${symbol} EA added successfully!`);
       }
       
-      Alert.alert('Success', `${symbol} ${isMentorIndicator ? 'indicator subscribed' : 'EA added'} successfully!`);
       onSuccess();
       onClose();
     } catch (error) {
       Alert.alert('Error', `Failed to ${customIndicators.find(ind => ind.id === indicatorType) ? 'subscribe to indicator' : 'add EA'}. Please try again.`);
-      console.error('Error:', error);
+      console.error('Error adding EA:', error);
     } finally {
       setLoading(false);
     }

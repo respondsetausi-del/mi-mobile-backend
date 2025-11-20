@@ -1,8 +1,9 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
+import Constants from 'expo-constants';
 
-const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || '';
 
 interface User {
   _id: string;
@@ -35,14 +36,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const loadStoredAuth = async () => {
     try {
-      // IMPORTANT: Don't auto-login, always require manual login
-      // Clear any stored tokens on app start
+      console.log('🔐 Checking for stored authentication...');
+      const storedToken = await AsyncStorage.getItem('authToken');
+      const storedUser = await AsyncStorage.getItem('user');
+      
+      if (storedToken && storedUser) {
+        console.log('✅ Found stored credentials, auto-logging in');
+        setToken(storedToken);
+        setUser(JSON.parse(storedUser));
+        console.log('✅ Auto-login successful!');
+      } else {
+        console.log('ℹ️ No stored credentials found');
+      }
+    } catch (error) {
+      console.error('❌ Error loading stored auth:', error);
+      // Clear invalid data
       await AsyncStorage.removeItem('authToken');
       await AsyncStorage.removeItem('user');
-      setToken(null);
-      setUser(null);
-    } catch (error) {
-      console.error('Error clearing auth:', error);
     } finally {
       setLoading(false);
     }

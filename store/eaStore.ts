@@ -1,103 +1,44 @@
 import { create } from 'zustand';
-import axios, { AxiosError } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { router } from 'expo-router';
-import { Alert } from 'react-native';
+import Constants from 'expo-constants';
 
-const API_URL = process.env.EXPO_PUBLIC_BACKEND_URL || '';
+const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || '';
 
-// Helper to get auth headers
-const getAuthHeaders = async () => {
-  const token = await AsyncStorage.getItem('authToken');
-  return token ? { Authorization: `Bearer ${token}` } : {};
-};
-
-// Helper to handle API errors
-const handleApiError = async (error: any) => {
-  if (axios.isAxiosError(error)) {
-    if (error.response?.status === 403) {
-      // Check if user has a token - if not, they intentionally logged out
-      const token = await AsyncStorage.getItem('authToken');
-      if (!token) {
-        // User logged out intentionally, don't show alert
-        console.log('403 error but no token found - user logged out');
-        return true;
-      }
-      
-      // User is deactivated or account not active
-      Alert.alert(
-        'Account Inactive',
-        'Your account has been deactivated. Please contact support.',
-        [
-          {
-            text: 'OK',
-            onPress: async () => {
-              await AsyncStorage.clear();
-              router.replace('/');
-            },
-          },
-        ]
-      );
-      return true;
-    }
-  }
-  return false;
-};
-
-interface IndicatorSettings {
-  type: string;
-  parameters: Record<string, any>;
-}
-
-interface EAConfig {
+interface Quote {
   symbol: string;
-  timeframe: string;
-  indicator: IndicatorSettings;
+  bid: number;
+  ask: number;
+  close: number;
+  change: number;
+  changePercent: number;
+  category: string;
 }
 
 interface EA {
   _id: string;
   name: string;
   status: 'running' | 'stopped';
-  config: EAConfig;
-  current_signal?: string;
-  last_price?: number;
-  indicator_values?: Record<string, any>;
-  created_at: string;
-  updated_at: string;
-}
-
-interface Quote {
-  symbol: string;
-  category: string;
-  bid: number;
-  ask: number;
-  close: number;
-  change: number;
-  timestamp: string;
-}
-
-interface Symbols {
-  forex: string[];
-  crypto: string[];
-  metals: string[];
-  indices: string[];
+  config: {
+    symbol: string;
+    timeframe: string;
+    indicator: any;
+  };
+  current_signal: string;
+  last_price: number;
 }
 
 interface EAStore {
   eas: EA[];
   quotes: Quote[];
-  symbols: Symbols;
-  selectedEAId: string | null;
   loading: boolean;
   error: string | null;
-  
-  // Actions
+  selectedEAId: string | null;
   fetchEAs: () => Promise<void>;
-  fetchQuotes: (category?: string) => Promise<void>;
-  fetchSymbols: () => Promise<void>;
-  addEA: (data: { name: string; config: EAConfig }) => Promise<void>;
+  fetchQuotes: () => Promise<void>;
+  addEA: (symbol: string, timeframe: string, indicatorType: string, indicatorParams: any) => Promise<void>;
   deleteEA: (id: string) => Promise<void>;
+  startEA: (id: string) => Promise<void>;
+  stopEA: (id: string) => Promise<void>;
   toggleEAStatus: (id: string) => Promise<void>;
   selectEA: (id: string) => void;
   reset: () => void;
@@ -106,119 +47,185 @@ interface EAStore {
 export const useEAStore = create<EAStore>((set, get) => ({
   eas: [],
   quotes: [],
-  symbols: { forex: [], crypto: [], metals: [], indices: [] },
-  selectedEAId: null,
   loading: false,
   error: null,
+  selectedEAId: null,
 
   fetchEAs: async () => {
     try {
-      const headers = await getAuthHeaders();
-      const response = await axios.get(`${API_URL}/api/ea`, { headers });
-      const eas = response.data;
-      set({ eas, error: null });
+      set({ loading: true, error: null });
+      const token = await AsyncStorage.getItem('authToken');
       
-      // Auto-select first EA if none selected
-      if (!get().selectedEAId && eas.length > 0) {
-        set({ selectedEAId: eas[0]._id });
+      if (!token) {
+        set({ eas: [], loading: false });
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/api/ea`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        set({ eas: data, loading: false });
+      } else {
+        throw new Error('Failed to fetch EAs');
       }
     } catch (error) {
-      const handled = await handleApiError(error);
-      if (!handled) {
-        console.error('Error fetching EAs:', error);
-        set({ error: 'Failed to fetch EAs' });
-      }
+      set({ error: 'Failed to fetch EAs', loading: false });
+      throw error;
     }
   },
 
-  fetchQuotes: async (category?: string) => {
+  fetchQuotes: async () => {
     try {
-      const url = category ? `${API_URL}/api/quotes?category=${category}` : `${API_URL}/api/quotes`;
-      const response = await axios.get(url);
-      set({ quotes: response.data, error: null });
+      const response = await fetch(`${API_URL}/api/quotes`);
+      if (response.ok) {
+        const data = await response.json();
+        set({ quotes: data });
+      }
     } catch (error) {
       console.error('Error fetching quotes:', error);
     }
   },
 
-  fetchSymbols: async () => {
+  addEA: async (symbol: string, timeframe: string, indicatorType: string, indicatorParams: any) => {
     try {
-      const response = await axios.get(`${API_URL}/api/symbols`);
-      set({ symbols: response.data, error: null });
-    } catch (error) {
-      console.error('Error fetching symbols:', error);
-    }
-  },
+      set({ loading: true, error: null });
+      const token = await AsyncStorage.getItem('authToken');
 
-  addEA: async (data) => {
-    try {
-      const headers = await getAuthHeaders();
-      const response = await axios.post(`${API_URL}/api/ea`, data, { headers });
-      const newEA = response.data;
-      set((state) => ({
-        eas: [...state.eas, newEA],
-        selectedEAId: newEA._id,
-        error: null,
-      }));
+      const response = await fetch(`${API_URL}/api/ea`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name: `${symbol} ${indicatorType}`,
+          config: {
+            symbol,
+            timeframe,
+            indicator: {
+              type: indicatorType,
+              parameters: indicatorParams,
+            },
+          },
+        }),
+      });
+
+      if (response.ok) {
+        await get().fetchEAs();
+      } else {
+        throw new Error('Failed to add EA');
+      }
     } catch (error) {
-      console.error('Error adding EA:', error);
       set({ error: 'Failed to add EA' });
       throw error;
     }
   },
 
-  deleteEA: async (id) => {
+  deleteEA: async (id: string) => {
     try {
-      const headers = await getAuthHeaders();
-      await axios.delete(`${API_URL}/api/ea/${id}`, { headers });
-      set((state) => {
-        const newEAs = state.eas.filter((ea) => ea._id !== id);
-        return {
-          eas: newEAs,
-          selectedEAId: newEAs.length > 0 ? newEAs[0]._id : null,
-          error: null,
-        };
+      set({ loading: true, error: null });
+      const token = await AsyncStorage.getItem('authToken');
+
+      const response = await fetch(`${API_URL}/api/ea/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       });
+
+      if (response.ok) {
+        set((state) => ({
+          eas: state.eas.filter((ea) => ea._id !== id),
+          loading: false,
+        }));
+      } else {
+        throw new Error('Failed to delete EA');
+      }
     } catch (error) {
-      console.error('Error deleting EA:', error);
       set({ error: 'Failed to delete EA' });
       throw error;
     }
   },
 
-  toggleEAStatus: async (id) => {
+  startEA: async (id: string) => {
     try {
-      const headers = await getAuthHeaders();
-      const ea = get().eas.find((e) => e._id === id);
-      if (!ea) return;
+      const token = await AsyncStorage.getItem('authToken');
 
-      const endpoint = ea.status === 'running' ? 'stop' : 'start';
-      const response = await axios.post(`${API_URL}/api/ea/${id}/${endpoint}`, {}, { headers });
-      const updatedEA = response.data;
+      const response = await fetch(`${API_URL}/api/ea/${id}/start`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
 
-      set((state) => ({
-        eas: state.eas.map((e) => (e._id === id ? updatedEA : e)),
-        error: null,
-      }));
+      if (response.ok) {
+        const updatedEA = await response.json();
+        set((state) => ({
+          eas: state.eas.map((ea) => (ea._id === id ? updatedEA : ea)),
+        }));
+      } else {
+        throw new Error('Failed to start EA');
+      }
     } catch (error) {
-      console.error('Error toggling EA status:', error);
-      set({ error: 'Failed to toggle EA status' });
+      set({ error: 'Failed to start EA' });
       throw error;
     }
   },
 
-  selectEA: (id) => {
+  stopEA: async (id: string) => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+
+      const response = await fetch(`${API_URL}/api/ea/${id}/stop`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const updatedEA = await response.json();
+        set((state) => ({
+          eas: state.eas.map((ea) => (ea._id === id ? updatedEA : ea)),
+        }));
+      } else {
+        throw new Error('Failed to stop EA');
+      }
+    } catch (error) {
+      set({ error: 'Failed to stop EA' });
+      throw error;
+    }
+  },
+
+  toggleEAStatus: async (id: string) => {
+    try {
+      const ea = get().eas.find((e) => e._id === id);
+      if (!ea) return;
+
+      if (ea.status === 'running') {
+        await get().stopEA(id);
+      } else {
+        await get().startEA(id);
+      }
+      
+      // Refresh EAs to get updated status
+      await get().fetchEAs();
+    } catch (error) {
+      console.error('Error toggling EA status:', error);
+      throw error;
+    }
+  },
+
+  selectEA: (id: string) => {
     set({ selectedEAId: id });
   },
 
   reset: () => {
-    set({
-      eas: [],
-      quotes: [],
-      symbols: { forex: [], crypto: [], metals: [], indices: [] },
-      selectedEAId: null,
-      loading: false,
-      error: null,
-    });
+    set({ eas: [], quotes: [], loading: false, error: null, selectedEAId: null });
   },
 }));
