@@ -35,7 +35,8 @@
         "INTERNET",
         "ACCESS_NETWORK_STATE",
         "VIBRATE",
-        "RECEIVE_BOOT_COMPLETED"
+        "RECEIVE_BOOT_COMPLETED",
+        "POST_NOTIFICATIONS"
       ]
     },
     "web": {
@@ -52,6 +53,12 @@
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#000"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#00D9FF"
         }
       ],
       "expo-font",

@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import Slider from '@react-native-community/slider';
 import Constants from 'expo-constants';
+import * as Clipboard from 'expo-clipboard';
 
 const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -1109,13 +1110,24 @@ export default function MentorDashboard() {
             {licenses.slice(0, 5).map((license) => (
               <View key={license._id} style={styles.licenseItem}>
                 <Text style={styles.licenseKey}>{license.key}</Text>
-                <View style={[
-                  styles.licenseBadge,
-                  { backgroundColor: license.used ? '#4CAF50' : '#333' }
-                ]}>
-                  <Text style={styles.licenseBadgeText}>
-                    {license.used ? 'Used' : 'Available'}
-                  </Text>
+                <View style={styles.licenseActions}>
+                  <TouchableOpacity
+                    style={styles.licenseCopyButton}
+                    onPress={async () => {
+                      await Clipboard.setStringAsync(license.key);
+                      Alert.alert('✅ Copied', 'License key copied to clipboard!');
+                    }}
+                  >
+                    <Ionicons name="copy-outline" size={18} color="#00D9FF" />
+                  </TouchableOpacity>
+                  <View style={[
+                    styles.licenseBadge,
+                    { backgroundColor: license.used ? '#4CAF50' : '#333' }
+                  ]}>
+                    <Text style={styles.licenseBadgeText}>
+                      {license.used ? 'Used' : 'Available'}
+                    </Text>
+                  </View>
                 </View>
               </View>
             ))}
@@ -2170,8 +2182,19 @@ export default function MentorDashboard() {
               <Text style={styles.userEmail}>{tempPasswordData.email}</Text>
               
               <Text style={styles.passwordLabel}>Temporary Password:</Text>
-              <View style={styles.passwordBox}>
-                <Text style={styles.passwordText}>{tempPasswordData.password}</Text>
+              <View style={styles.passwordBoxContainer}>
+                <View style={styles.passwordBox}>
+                  <Text style={styles.passwordText}>{tempPasswordData.password}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.copyButton}
+                  onPress={async () => {
+                    await Clipboard.setStringAsync(tempPasswordData.password);
+                    Alert.alert('✅ Copied', 'Password copied to clipboard!');
+                  }}
+                >
+                  <Ionicons name="copy-outline" size={20} color="#00D9FF" />
+                </TouchableOpacity>
               </View>
               
               <View style={styles.warningBox}>
@@ -2508,8 +2531,10 @@ const styles = StyleSheet.create({
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   licensesCount: { fontSize: 14, color: '#00D9FF', fontWeight: '600' },
   licensesList: { gap: 8 },
-  licenseItem: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: '#111', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#333' },
+  licenseItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#111', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#333' },
   licenseKey: { fontSize: 14, color: '#fff', fontFamily: 'monospace', flex: 1 },
+  licenseActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  licenseCopyButton: { padding: 6, borderRadius: 6, backgroundColor: 'rgba(0, 217, 255, 0.1)' },
   licenseBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8 },
   licenseBadgeText: { fontSize: 11, color: '#fff', fontWeight: 'bold' },
   moreText: { textAlign: 'center', color: '#666', marginTop: 10, fontSize: 13 },
@@ -2740,20 +2765,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
   },
+  passwordBoxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   passwordBox: {
     backgroundColor: '#0f0f1e',
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
     borderColor: '#00D9FF',
-    marginBottom: 16,
+    flex: 1,
   },
   passwordText: {
     fontSize: 22,
     color: '#00FF88',
     fontWeight: 'bold',
-    textAlign: 'center',
     letterSpacing: 2,
+  },
+  copyButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 217, 255, 0.1)',
+    marginLeft: 12,
   },
   warningBox: {
     flexDirection: 'row',

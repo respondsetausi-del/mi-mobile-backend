@@ -99,6 +99,22 @@ export default function UserMenu() {
 
               <View style={styles.divider} />
 
+              {/* Menu Items */}
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setMenuVisible(false);
+                  router.push('/about');
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="information-circle-outline" size={24} color="#00D9FF" />
+                <Text style={styles.menuItemText}>About & Legal</Text>
+                <Ionicons name="chevron-forward" size={22} color="#666" />
+              </TouchableOpacity>
+
+              <View style={styles.divider} />
+
               {/* Logout Button */}
               <TouchableOpacity
                 style={styles.logoutItem}
@@ -206,6 +222,19 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: '#333',
     marginVertical: 8,
+  },
+  menuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    paddingHorizontal: 20,
+  },
+  menuItemText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#fff',
+    marginLeft: 12,
+    fontWeight: '600',
   },
   logoutItem: {
     flexDirection: 'row',

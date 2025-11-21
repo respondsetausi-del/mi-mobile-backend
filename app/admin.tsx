@@ -19,6 +19,7 @@ import { router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as Clipboard from 'expo-clipboard';
 import Slider from '@react-native-community/slider';
 import Constants from 'expo-constants';
 import ConfirmModal from '../components/ConfirmModal';
@@ -2224,8 +2225,19 @@ export default function AdminDashboard() {
               <Text style={styles.userEmail}>{tempPasswordData.email}</Text>
               
               <Text style={styles.passwordLabel}>Temporary Password:</Text>
-              <View style={styles.passwordBox}>
-                <Text style={styles.passwordText}>{tempPasswordData.password}</Text>
+              <View style={styles.passwordBoxContainer}>
+                <View style={styles.passwordBox}>
+                  <Text style={styles.passwordText}>{tempPasswordData.password}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.copyButton}
+                  onPress={async () => {
+                    await Clipboard.setStringAsync(tempPasswordData.password);
+                    Alert.alert('✅ Copied', 'Password copied to clipboard!');
+                  }}
+                >
+                  <Ionicons name="copy-outline" size={20} color="#00D9FF" />
+                </TouchableOpacity>
               </View>
               
               <View style={styles.warningBox}>
@@ -3483,20 +3495,30 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 8,
   },
+  passwordBoxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   passwordBox: {
     backgroundColor: '#0f0f1e',
     padding: 16,
     borderRadius: 12,
     borderWidth: 2,
     borderColor: '#00D9FF',
-    marginBottom: 16,
+    flex: 1,
   },
   passwordText: {
     fontSize: 22,
     color: '#00FF88',
     fontWeight: 'bold',
-    textAlign: 'center',
     letterSpacing: 2,
+  },
+  copyButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0, 217, 255, 0.1)',
+    marginLeft: 12,
   },
   warningBox: {
     flexDirection: 'row',

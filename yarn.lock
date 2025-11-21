@@ -3755,6 +3755,11 @@ expo-blur@~15.0.7:
   resolved "https://registry.npmjs.org/expo-blur/-/expo-blur-15.0.7.tgz"
   integrity sha512-SugQQbQd+zRPy8z2G5qDD4NqhcD7srBF7fN7O7yq6q7ZFK59VWvpDxtMoUkmSfdxgqONsrBN/rLdk00USADrMg==
 
+expo-clipboard@^8.0.7:
+  version "8.0.7"
+  resolved "https://registry.yarnpkg.com/expo-clipboard/-/expo-clipboard-8.0.7.tgz#f81d279036408bbe074ef748623e1ae6f170d391"
+  integrity sha512-zvlfFV+wB2QQrQnHWlo0EKHAkdi2tycLtE+EXFUWTPZYkgu1XcH+aiKfd4ul7Z0SDF+1IuwoiW9AA9eO35aj3Q==
+
 expo-constants@~18.0.10:
   version "18.0.10"
   resolved "https://registry.npmjs.org/expo-constants/-/expo-constants-18.0.10.tgz"
@@ -3923,7 +3928,7 @@ expo-web-browser@~15.0.9:
 
 expo@^54.0.25:
   version "54.0.25"
-  resolved "https://registry.npmjs.org/expo/-/expo-54.0.25.tgz"
+  resolved "https://registry.yarnpkg.com/expo/-/expo-54.0.25.tgz#2108c7a299c52415e4ede4a5b0c3c6d25ccd191e"
   integrity sha512-+iSeBJfHRHzNPnHMZceEXhSGw4t5bNqFyd/5xMUoGfM+39rO7F72wxiLRpBKj0M6+0GQtMaEs+eTbcCrO7XyJQ==
   dependencies:
     "@babel/runtime" "^7.20.0"

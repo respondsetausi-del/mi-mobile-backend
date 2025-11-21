@@ -250,6 +250,15 @@ export default function LoginScreen() {
 
         {/* Footer */}
         <View style={styles.footer}>
+          <View style={styles.legalLinks}>
+            <TouchableOpacity onPress={() => router.push('/legal/privacy-policy')}>
+              <Text style={styles.legalLinkText}>Privacy Policy</Text>
+            </TouchableOpacity>
+            <Text style={styles.legalSeparator}>•</Text>
+            <TouchableOpacity onPress={() => router.push('/legal/terms-and-conditions')}>
+              <Text style={styles.legalLinkText}>Terms & Conditions</Text>
+            </TouchableOpacity>
+          </View>
           <Text style={styles.footerText}>© 2025 MI. All rights reserved.</Text>
         </View>
       </View>
@@ -382,6 +391,21 @@ const styles = StyleSheet.create({
   footer: {
     alignItems: 'center',
     paddingVertical: 20,
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  legalLinkText: {
+    color: '#00D9FF',
+    fontSize: 12,
+    textDecorationLine: 'underline',
+  },
+  legalSeparator: {
+    color: '#666',
+    fontSize: 12,
+    marginHorizontal: 8,
   },
   footerText: {
     color: '#666',
