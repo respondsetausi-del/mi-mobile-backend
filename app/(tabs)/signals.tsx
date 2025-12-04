@@ -47,53 +47,96 @@ export default function SignalsScreen() {
 
   const fetchCustomIndicators = async () => {
     try {
+      console.log('🔵 Fetching custom indicators from API...');
       const token = await AsyncStorage.getItem('authToken');
-      if (!token) return;
+      if (!token) {
+        console.log('❌ No auth token found');
+        return;
+      }
 
+      console.log('📤 Request URL:', `${API_URL}/api/user/mentor-indicators`);
       const response = await fetch(`${API_URL}/api/user/mentor-indicators`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
+      console.log('📥 Response status:', response.status);
+
       if (response.ok) {
         const data = await response.json();
+        console.log('✅ Received indicators data:', JSON.stringify(data));
+        console.log('📊 Number of indicators:', data.indicators?.length || 0);
         setCustomIndicators(data.indicators || []);
+        console.log('✅ Custom indicators state updated');
+      } else {
+        console.error('❌ Failed to fetch indicators. Status:', response.status);
       }
     } catch (error) {
-      console.error('Error fetching indicators:', error);
+      console.error('❌ Error fetching indicators:', error);
     }
   };
 
   const addIndicatorToSignals = async () => {
-    if (!selectedIndicator) {
-      Alert.alert('Error', 'Please select an indicator');
-      return;
-    }
-
-    setAddingIndicator(true);
     try {
+      console.log('🔴🔴🔴 BUTTON CLICKED! ADD TO SIGNALS function called');
+      console.log('📍 Current selectedIndicator:', selectedIndicator);
+      console.log('📍 Current API_URL:', API_URL);
+      
+      if (!selectedIndicator) {
+        console.log('❌ No indicator selected');
+        Alert.alert('Error', 'Please select an indicator first');
+        return;
+      }
+
+      console.log('📤 Starting API call to add indicator:', selectedIndicator);
+      setAddingIndicator(true);
+      
       const token = await AsyncStorage.getItem('authToken');
-      const response = await fetch(`${API_URL}/api/user/select-indicator`, {
+      console.log('🔑 Token retrieved:', token ? 'exists (length: ' + token.length + ')' : 'MISSING!');
+      
+      const requestBody = { indicator_id: selectedIndicator };
+      console.log('📤 Request body:', JSON.stringify(requestBody));
+      
+      const url = `${API_URL}/api/user/select-indicator`;
+      console.log('📤 Request URL:', url);
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ indicator_id: selectedIndicator }),
+        body: JSON.stringify(requestBody),
       });
+
+      console.log('📥 Response status:', response.status);
+      console.log('📥 Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries())));
 
       if (response.ok) {
         const data = await response.json();
-        Alert.alert('Success', `Added ${data.indicator_name} to your signals!`);
+        console.log('✅ Indicator added successfully! Response:', JSON.stringify(data));
+        Alert.alert('✅ Success', `Added ${data.indicator_name} to your signals!`);
         setShowIndicatorModal(false);
         setSelectedIndicator(null);
         fetchEAs(); // Refresh to show new indicator
       } else {
-        const error = await response.json();
-        Alert.alert('Error', error.detail || 'Failed to add indicator');
+        const errorText = await response.text();
+        console.error('❌ API returned error status:', response.status);
+        console.error('❌ Error response body:', errorText);
+        try {
+          const error = JSON.parse(errorText);
+          Alert.alert('Error', error.detail || 'Failed to add indicator');
+        } catch (e) {
+          Alert.alert('Error', `Failed to add indicator. Status: ${response.status}`);
+        }
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to add indicator');
+      console.error('❌❌❌ CRITICAL EXCEPTION in addIndicatorToSignals:');
+      console.error('Error type:', error?.constructor?.name);
+      console.error('Error message:', error?.message);
+      console.error('Full error:', error);
+      Alert.alert('Error', `Failed to add indicator: ${error?.message || 'Unknown error'}`);
     } finally {
+      console.log('🏁 Finally block - setting addingIndicator to false');
       setAddingIndicator(false);
     }
   };
@@ -212,14 +255,14 @@ export default function SignalsScreen() {
           <Text style={styles.headerTitle}>Trading Signals</Text>
         </View>
 
-        {eas.length === 0 ? (
+        {eas.length === 0 && customIndicators.length === 0 ? (
           <View style={styles.emptyContainer}>
-            <Ionicons name="analytics-outline" size={64} color="#333" />
-            <Text style={styles.emptyText}>No EAs configured</Text>
-            <Text style={styles.emptySubtext}>Add an EA to start monitoring signals</Text>
+            <Ionicons name="pulse-outline" size={64} color="#333" />
+            <Text style={styles.emptyText}>No Signal Monitors configured</Text>
+            <Text style={styles.emptySubtext}>Add a signal monitor to start tracking market signals</Text>
             <TouchableOpacity style={styles.addButton} onPress={() => router.push('/add-ea')}>
               <Ionicons name="add-circle" size={24} color="#fff" />
-              <Text style={styles.addButtonText}>Add Your First EA</Text>
+              <Text style={styles.addButtonText}>Add Your First Monitor</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -244,21 +287,7 @@ export default function SignalsScreen() {
           />
         )}
 
-        {customIndicators.length > 0 && (
-          <TouchableOpacity 
-            style={[styles.floatingAddButton, { bottom: 100 }]} 
-            onPress={() => {
-              fetchCustomIndicators();
-              setShowIndicatorModal(true);
-            }}
-          >
-            <Ionicons name="analytics" size={32} color="#000" />
-          </TouchableOpacity>
-        )}
-
-        <TouchableOpacity style={styles.floatingAddButton} onPress={() => router.push('/add-ea')}>
-          <Ionicons name="add" size={32} color="#000" />
-        </TouchableOpacity>
+        {/* Removed floating add button - only show existing signals */}
 
         {/* Indicator Selection Modal */}
         <Modal

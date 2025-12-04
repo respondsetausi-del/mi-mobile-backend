@@ -24,15 +24,41 @@ import AddEAModal from '../../components/AddEAModal';
 import RemoveEAModal from '../../components/RemoveEAModal';
 import SymbolsModal from '../../components/SymbolsModal';
 import BrokersModal from '../../components/BrokersModal';
-import { useNotifications, showSignalNotification } from '../../hooks/useNotifications';
+import { showSignalNotification, useNotifications } from '../../hooks/useNotifications';
 import FloatingBubble from '../../components/FloatingBubble';
+import { useSignalQueue } from '../../hooks/useSignalQueue';
+import * as TaskManager from 'expo-task-manager';
+import { registerBackgroundFetch, unregisterBackgroundFetch, sendTestNotification } from '../../services/backgroundService';
+import * as BackgroundFetch from 'expo-background-fetch';
 import UserMenu from '../../components/UserMenu';
+
+const SIGNAL_TASK = 'background-signal-task';
 
 const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || '';
 
 export default function HomeScreen() {
+  console.log('🏠 HomeScreen rendering...');
   const { eas, selectedEAId, fetchEAs, fetchQuotes, toggleEAStatus } = useEAStore();
   const [loading, setLoading] = useState(true);
+  const [initialLoad, setInitialLoad] = useState(true);
+  const [loadingMessage, setLoadingMessage] = useState('Initializing...');
+  const [showFloatingBubble, setShowFloatingBubble] = useState(false);
+  
+  // Signal queue for floating bubble
+  const { currentSignal, queueLength, addSignal, closeCurrentSignal, clearQueue } = useSignalQueue();
+  
+  // Timeout for loading to prevent infinite loading
+  useEffect(() => {
+    const loadingTimeout = setTimeout(() => {
+      if (loading) {
+        console.log('⚠️ Loading timeout - forcing load complete');
+        setLoading(false);
+        setInitialLoad(false);
+      }
+    }, 10000); // 10 second timeout
+    
+    return () => clearTimeout(loadingTimeout);
+  }, [loading]);
   const [showSymbolsModal, setShowSymbolsModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
@@ -55,6 +81,31 @@ export default function HomeScreen() {
   const [selectedIndicatorId, setSelectedIndicatorId] = useState<string | null>(null);
   const [showIndicatorsModal, setShowIndicatorsModal] = useState(false);
   const [loadingIndicators, setLoadingIndicators] = useState(false);
+  const [isMonitoring, setIsMonitoring] = useState(false); // Track if user is actively monitoring indicator
+  
+  // Load monitoring state and selected symbol on mount
+  useEffect(() => {
+    const loadSavedState = async () => {
+      try {
+        const savedMonitoring = await AsyncStorage.getItem('isMonitoring');
+        const savedSymbol = await AsyncStorage.getItem('selectedSymbol');
+        
+        if (savedMonitoring !== null) {
+          const monitoring = JSON.parse(savedMonitoring);
+          console.log('📱 Restored monitoring state:', monitoring);
+          setIsMonitoring(monitoring);
+        }
+        
+        if (savedSymbol !== null) {
+          console.log('📱 Restored selected symbol:', savedSymbol);
+          setSelectedSymbol(savedSymbol);
+        }
+      } catch (error) {
+        console.error('Error loading saved state:', error);
+      }
+    };
+    loadSavedState();
+  }, []);
   
   // Market news
   const [news, setNews] = useState<any[]>([]);
@@ -65,40 +116,75 @@ export default function HomeScreen() {
   const { expoPushToken, notification } = useNotifications();
 
   useEffect(() => {
-    loadData();
-    fetchSystemName();
-    fetchManualSignals(); // Fetch manual signals on mount
-    fetchBrokers(); // Fetch brokers on mount
-    fetchNews(); // Fetch news on mount
-    fetchUpcomingNewsAlerts(); // Fetch news alerts on mount
-    fetchCustomIndicators(); // Fetch custom indicators on mount
-    
-    // Fast refresh for critical data (EAs and quotes)
-    const fastInterval = setInterval(() => {
-      fetchEAs();
-      fetchQuotes();
-    }, 5000); // Every 5 seconds
-    
-    // Medium refresh for signals and alerts
-    const mediumInterval = setInterval(() => {
-      fetchManualSignals();
-      fetchUpcomingNewsAlerts(); // Check for upcoming news alerts
-      fetchCustomIndicators(); // Refresh indicators and their signals
-    }, 10000); // Every 10 seconds
-    
-    // Slow refresh for less critical data
-    const slowInterval = setInterval(() => {
-      fetchSystemName();
-      fetchBrokers();
-      fetchNews();
-    }, 30000); // Every 30 seconds
-    
-    return () => {
-      clearInterval(fastInterval);
-      clearInterval(mediumInterval);
-      clearInterval(slowInterval);
+    const initializeApp = async () => {
+      console.log('🚀 Starting app initialization...');
+      setLoadingMessage('Loading profile...');
+      
+      try {
+        // Fast initialization with timeout
+        const initPromise = Promise.all([
+          fetchQuotes().catch(err => console.log('Quotes failed, continuing...')),
+          fetchUserProfile().catch(err => console.log('Profile failed, continuing...')),
+        ]);
+        
+        // Race between initialization and timeout
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Initialization timeout')), 8000)
+        );
+        
+        await Promise.race([initPromise, timeoutPromise]);
+        console.log('✅ App initialized successfully');
+        
+      } catch (error) {
+        console.log('⚠️ Initialization timeout, loading app anyway');
+      } finally {
+        setLoading(false);
+        setInitialLoad(false);
+      }
     };
-  }, []);
+
+    if (initialLoad) {
+      initializeApp();
+    }
+  }, [initialLoad]);
+
+  useEffect(() => {
+    if (!initialLoad) {
+      loadData();
+      fetchSystemName();
+      fetchManualSignals(); // Fetch manual signals on mount
+      fetchBrokers(); // Fetch brokers on mount
+      fetchNews(); // Fetch news on mount
+      fetchUpcomingNewsAlerts(); // Fetch news alerts on mount
+      fetchCustomIndicators(); // Fetch custom indicators on mount
+      
+      // Fast refresh for critical data (EAs and quotes)
+      const fastInterval = setInterval(() => {
+        fetchEAs();
+        fetchQuotes();
+      }, 5000); // Every 5 seconds
+      
+      // Medium refresh for signals and alerts
+      const mediumInterval = setInterval(() => {
+        fetchManualSignals();
+        fetchUpcomingNewsAlerts(); // Check for upcoming news alerts
+        fetchCustomIndicators(); // Refresh indicators and their signals
+      }, 10000); // Every 10 seconds
+      
+      // Slow refresh for less critical data
+      const slowInterval = setInterval(() => {
+        fetchSystemName();
+        fetchBrokers();
+        fetchNews();
+      }, 30000); // Every 30 seconds
+      
+      return () => {
+        clearInterval(fastInterval);
+        clearInterval(mediumInterval);
+        clearInterval(slowInterval);
+      };
+    }
+  }, [initialLoad]);
 
   const fetchManualSignals = async () => {
     try {
@@ -112,10 +198,20 @@ export default function HomeScreen() {
       if (response.ok) {
         const data = await response.json();
         if (data.signal) {
-          console.log('🔴 FLOATING BUBBLE UPDATE - Manual signal:', data.signal.signal_type, 'for', data.signal.symbol);
+          console.log('🔴 Manual signal received:', data.signal.signal_type, 'for', data.signal.symbol);
           setManualSignal(data.signal);
+          
+          // Add manual signal to queue (high priority, higher duration if specified)
+          addSignal({
+            signal: data.signal.signal_type,
+            symbol: data.signal.symbol,
+            indicator: data.signal.indicator || 'Manual',
+            price: 0,
+            candle_pattern: data.signal.candle_pattern || '',
+            duration: data.signal.duration || 45, // Manual signals get 45 seconds by default
+          });
         } else {
-          console.log('🟢 FLOATING BUBBLE UPDATE - No manual signals, using EA signal');
+          console.log('🟢 No manual signals active');
           setManualSignal(null);
         }
       }
@@ -344,38 +440,168 @@ export default function HomeScreen() {
     }
   };
 
-  const selectedEA = eas.find(ea => ea._id === selectedEAId) || eas[0];
-  const currentSignal = selectedEA?.current_signal || 'NEUTRAL';
+  const fetchUserProfile = async () => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) return;
 
-  // Prioritize manual signal for theme, fallback to EA signal
-  const activeSignal = manualSignal?.signal_type || currentSignal;
+      const response = await fetch(`${API_URL}/api/user/profile`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ User profile loaded:', data.username || 'Unknown');
+      }
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+    }
+  };
+
+  // Use EA signals filtered by selected symbol (from Signals tab)
+  // Match both "EUR/USD" and "EURUSD" formats
+  const normalizeSymbol = (symbol: string) => symbol?.replace(/[\/\-]/g, '').toUpperCase();
+  const selectedEA = eas.find(ea => {
+    const eaSymbol = normalizeSymbol(ea.config?.symbol);
+    const selected = normalizeSymbol(selectedSymbol);
+    return eaSymbol === selected;
+  });
+  const symbolSignal = selectedEA?.current_signal || 'NEUTRAL';
+  
+  // Active signal comes from the selected EA
+  const activeSignal = selectedEA?.current_signal || 'NEUTRAL';
 
   // Log when floating bubble data changes
   useEffect(() => {
-    if (manualSignal) {
-      console.log('🔴 FLOATING BUBBLE: Showing MANUAL signal -', manualSignal.signal_type, 'for', manualSignal.symbol);
-    } else if (selectedEA?.status === 'running') {
-      console.log('🔵 FLOATING BUBBLE: Showing EA signal -', currentSignal, 'for', selectedEA.config?.symbol);
+    if (selectedEA && isMonitoring && symbolSignal !== 'NEUTRAL') {
+      console.log('🔴 FLOATING BUBBLE: Showing EA signal -', symbolSignal, 'for', selectedEA.config?.symbol);
+    } else if (selectedEA && isMonitoring) {
+      console.log('🟡 EA selected but signal is NEUTRAL:', selectedEA.config?.symbol);
     } else {
-      console.log('⚫ FLOATING BUBBLE: Hidden (no signal)');
+      console.log('⚫ FLOATING BUBBLE: Hidden (no monitoring or no EA selected)');
     }
-  }, [manualSignal, currentSignal, selectedEA?.status]);
+  }, [selectedEA, isMonitoring, symbolSignal]);
 
-  // Detect signal changes and show floating notification
+  // Detect signal changes and add to queue (now using EA signals)
   useEffect(() => {
-    if (selectedEA && selectedEA.status === 'running') {
-      if (currentSignal !== previousSignal && currentSignal !== 'NEUTRAL') {
-        // Signal changed! Show floating notification
-        const symbol = selectedEA.config?.symbol || 'Unknown';
-        const indicator = selectedEA.config?.indicator?.type || 'Unknown';
-        const price = selectedEA.last_price || 0;
+    // Only detect signal changes when monitoring is ACTIVE
+    if (isMonitoring && selectedSymbol && selectedEA) {
+      const signalType = selectedEA.current_signal;
+      
+      console.log('🔍 Checking signal:', {
+        current: signalType,
+        previous: previousSignal,
+        ea: selectedEA.name,
+        monitoring: isMonitoring,
+        timestamp: new Date().toLocaleTimeString()
+      });
+      
+      // Check if this is a new signal (different from previous)
+      if (signalType !== previousSignal) {
+        console.log('🔔 NEW SIGNAL DETECTED! Changed from', previousSignal, 'to', signalType);
         
-        showSignalNotification(symbol, currentSignal, indicator, price);
-        triggerGlowAnimation();
+        // If signal changed TO NEUTRAL while monitoring, clear bubbles
+        if (signalType === 'NEUTRAL') {
+          console.log('⚪ Signal changed to NEUTRAL - clearing bubble and queue');
+          closeCurrentSignal(); // Close current bubble
+          clearQueue(); // Clear all queued signals
+        } else {
+          // Add BUY/SELL signal to queue
+          try {
+            // Add to signal queue
+            addSignal({
+              signal: signalType,
+              symbol: selectedEA.config?.symbol || selectedSymbol,
+              indicator: selectedEA.name || '',
+              price: selectedEA.last_price || 0,
+              candle_pattern: '',
+              duration: 30,
+            });
+            
+            console.log('✅ Signal added to queue:', signalType);
+            
+            // Show push notification
+            showSignalNotification(signalType, selectedEA.config?.symbol || selectedSymbol);
+            triggerGlowAnimation();
+          } catch (error) {
+            console.error('❌ Error processing signal:', error);
+          }
+        }
+        
+        // Always update previous signal
+        setPreviousSignal(signalType);
       }
-      setPreviousSignal(currentSignal);
     }
-  }, [currentSignal, selectedEA]);
+  }, [selectedEA?.current_signal, selectedEA?.id, isMonitoring, selectedSymbol]);
+  
+  // Poll for EA updates every 10 seconds when monitoring
+  useEffect(() => {
+    if (isMonitoring && selectedSymbol && selectedEA) {
+      console.log('🔄 Starting real-time signal polling (every 10 seconds)');
+      console.log('📊 Current monitoring state:', { isMonitoring, selectedSymbol, selectedEA: selectedEA?.name });
+      
+      // Function to fetch latest signal calculation
+      const fetchLatestSignal = async () => {
+        try {
+          const token = await AsyncStorage.getItem('authToken');
+          if (!token) {
+            console.log('⚠️ No auth token for signal polling');
+            return;
+          }
+          
+          console.log('📤 Fetching real-time signal for EA:', selectedEA._id);
+          const response = await fetch(`${API_URL}/api/ea/${selectedEA._id}/calculate`, {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            },
+          });
+          
+          if (response.ok) {
+            const data = await response.json();
+            console.log('✅ Real-time signal data received:', {
+              signal: data.signal,
+              price: data.price,
+              timestamp: new Date().toLocaleTimeString()
+            });
+            
+            // Refresh the EA list to update UI with new signal
+            await fetchEAs();
+          } else {
+            console.error('❌ Failed to fetch signal:', response.status);
+          }
+        } catch (error) {
+          console.error('❌ Error fetching real-time signal:', error);
+        }
+      };
+      
+      // Fetch immediately on start
+      fetchLatestSignal();
+      
+      // Then poll every 10 seconds
+      const pollInterval = setInterval(() => {
+        console.log('🔄 Polling for real-time signal update...', { 
+          time: new Date().toLocaleTimeString() 
+        });
+        fetchLatestSignal();
+      }, 10000); // Poll every 10 seconds
+      
+      return () => {
+        console.log('⏹️ Stopping real-time signal polling');
+        clearInterval(pollInterval);
+      };
+    }
+  }, [isMonitoring, selectedSymbol, selectedEA?._id]);
+  
+  // Log monitoring state changes for debugging
+  useEffect(() => {
+    console.log('🔔 Monitoring state changed:', {
+      isMonitoring,
+      selectedSymbol,
+      selectedEA: selectedEA?.name,
+      hasCurrentSignal: !!currentSignal,
+      time: new Date().toLocaleTimeString()
+    });
+  }, [isMonitoring]);
 
   useEffect(() => {
     if (notification) {
@@ -398,7 +624,8 @@ export default function HomeScreen() {
     // Use more transparent gradients when custom background image is set
     const hasCustomBg = !!backgroundImage;
     
-    if (activeSignal === 'BUY') {
+    // ONLY apply color themes when monitoring is ACTIVE
+    if (isMonitoring && activeSignal === 'BUY') {
       return {
         primary: '#00FF88',
         gradient: hasCustomBg 
@@ -407,7 +634,7 @@ export default function HomeScreen() {
         glow: '#00FF88',
         accent: '#00FF88',
       };
-    } else if (activeSignal === 'SELL') {
+    } else if (isMonitoring && activeSignal === 'SELL') {
       return {
         primary: '#FF4444',
         gradient: hasCustomBg
@@ -445,34 +672,185 @@ export default function HomeScreen() {
   };
 
   const handleStartStop = async () => {
-    if (!selectedEA) {
-      Alert.alert('No EA Configured', 'Please tap QUOTES to add an EA first.');
-      return;
-    }
-    
-    await toggleEAStatus(selectedEA._id);
-    
-    if (selectedEA.status === 'stopped') {
-      Alert.alert(
-        '🔔 Floating Alerts Active',
-        'You will receive floating bubble notifications when trading signals are detected, even when app is closed!',
-        [{ text: 'Got it!' }]
-      );
+    console.log('🎯 START/STOP button clicked');
+    console.log('📊 Current state:', {
+      selectedSymbol: selectedSymbol || 'none',
+      isMonitoring,
+      availableEAs: eas.length,
+      selectedEA: selectedEA?.name || 'none'
+    });
+
+    try {
+      // If no symbol selected, check if there's at least one EA and auto-select it
+      if (!selectedSymbol && eas.length > 0) {
+        const firstEA = eas[0];
+        const autoSymbol = normalizeSymbol(firstEA.config?.symbol);
+        console.log('🔄 Auto-selecting symbol from first EA:', autoSymbol);
+        setSelectedSymbol(autoSymbol);
+        // Continue with monitoring
+      } else if (!selectedSymbol && eas.length === 0) {
+        console.log('⚠️ No EAs created');
+        Alert.alert(
+          'No Signal Monitors', 
+          'Please create a signal monitor in the Signals tab first.',
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+      
+      // Toggle monitoring state
+      const newMonitoringState = !isMonitoring;
+      setIsMonitoring(newMonitoringState);
+      
+      // Persist monitoring state
+      await AsyncStorage.setItem('isMonitoring', JSON.stringify(newMonitoringState));
+      await AsyncStorage.setItem('selectedSymbol', selectedSymbol);
+      console.log('💾 Saved monitoring state:', newMonitoringState, 'for symbol:', selectedSymbol);
+      
+      if (newMonitoringState) {
+        // Started monitoring
+        const finalSymbol = selectedSymbol || normalizeSymbol(eas[0]?.config?.symbol);
+        const finalEA = selectedEA || eas[0];
+        const currentSignal = finalEA?.current_signal || 'NEUTRAL';
+        
+        console.log('✅ Started monitoring:');
+        console.log('  - Symbol:', finalSymbol);
+        console.log('  - EA:', finalEA?.name);
+        console.log('  - Current Signal:', currentSignal);
+        
+        // Store selected EA ID for background task
+        if (finalEA?._id) {
+          await AsyncStorage.setItem('selectedEAId', finalEA._id);
+        }
+        
+        // Register background fetch for notifications
+        const registered = await registerBackgroundFetch();
+        if (registered) {
+          console.log('📱 Background monitoring registered successfully');
+          // Send test notification
+          await sendTestNotification();
+        } else {
+          console.log('⚠️ Background monitoring registration failed');
+        }
+        
+        Alert.alert(
+          '🔔 Monitoring Active',
+          `Now monitoring:\n"${finalSymbol}"\n\nEA: ${finalEA?.name || 'Unknown'}\nCurrent Signal: ${currentSignal}\n\n✅ Background notifications enabled\n✅ Floating bubble overlay active\n\nYou'll receive push notifications even when the app is closed!`,
+          [{ text: 'Got it!' }]
+        );
+        
+        // Show floating bubble immediately if there's an active signal
+        if (finalEA && currentSignal !== 'NEUTRAL') {
+          console.log('🟢 Showing floating bubble immediately with signal:', currentSignal);
+          
+          // Add initial signal to queue
+          addSignal({
+            signal: currentSignal,
+            symbol: finalEA.config?.symbol || finalSymbol,
+            indicator: finalEA.name || '',
+            price: finalEA.last_price || 0,
+            candle_pattern: '',
+            duration: 30,
+          });
+          
+          // Set initial previousSignal to current signal
+          setPreviousSignal(currentSignal);
+          
+          console.log('📊 Initial signal added to queue:', currentSignal);
+          triggerGlowAnimation();
+        } else {
+          console.log('🟡 No active signal yet, bubble will appear when signal changes');
+        }
+      } else {
+        // Stopped monitoring
+        console.log('⏹️ Stopped monitoring symbol:', selectedSymbol);
+        
+        // Unregister background fetch
+        await unregisterBackgroundFetch();
+        console.log('📴 Background monitoring stopped');
+        
+        // Clear all active signals and bubbles
+        console.log('🔵 Clearing all signals - NO BUBBLES when stopped');
+        closeCurrentSignal();
+        clearQueue();
+        
+        // Reset previous signal to neutral
+        setPreviousSignal('NEUTRAL');
+        
+        console.log('✅ Monitoring stopped - all signals cleared');
+      }
+    } catch (error) {
+      console.error('❌ Error in handleStartStop:', error);
+      Alert.alert('Error', 'Failed to toggle monitoring. Please try again.');
     }
   };
 
   const handleSymbolSelect = (symbol: string) => {
+    console.log('📍 Symbol selected:', symbol);
     setSelectedSymbol(symbol);
     setShowSymbolsModal(false);
     setShowAddModal(true);
   };
 
-  const handleRemove = () => {
-    if (eas.length === 0) {
-      Alert.alert('No EAs', 'You have no EAs configured.');
-      return;
+  // NEW: Handle custom indicator selection (different from symbol selection)
+  const handleIndicatorSelect = async (indicatorId: string, indicatorName: string) => {
+    console.log('📊 Indicator selected:', indicatorName, 'ID:', indicatorId);
+    setShowSymbolsModal(false);
+    
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        Alert.alert('Error', 'Please log in again');
+        return;
+      }
+
+      console.log('🔄 Selecting indicator via API...');
+      const response = await fetch(`${API_URL}/api/user/select-indicator`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ indicator_id: indicatorId }),
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log('✅ Indicator selected successfully:', data);
+        setSelectedIndicatorId(indicatorId);
+        await fetchCustomIndicators(); // Refresh to get updated data
+        Alert.alert(
+          '✅ Indicator Selected', 
+          `Now following: ${data.indicator_name}\n\nCurrent Signal: ${data.current_signal}\n\nTap START to begin monitoring!`,
+          [{ text: 'OK' }]
+        );
+      } else {
+        const error = await response.json();
+        console.error('❌ Failed to select indicator:', error);
+        Alert.alert('Error', error.detail || 'Failed to select indicator');
+      }
+    } catch (error) {
+      console.error('❌ Error selecting indicator:', error);
+      Alert.alert('Error', 'Network error. Please try again.');
     }
-    setShowRemoveModal(true);
+  };
+
+  const handleRemove = () => {
+    try {
+      console.log('🗑️ REMOVE button clicked');
+      console.log('Current EAs count:', eas.length);
+      
+      if (eas.length === 0) {
+        Alert.alert('No Signals', 'You have no signal sources configured.');
+        return;
+      }
+      
+      console.log('Opening remove modal');
+      setShowRemoveModal(true);
+    } catch (error) {
+      console.error('❌ Error in handleRemove:', error);
+      Alert.alert('Error', 'Failed to open remove dialog. Please try again.');
+    }
   };
 
   if (loading) {
@@ -493,102 +871,60 @@ export default function HomeScreen() {
     outputRange: [10, 30],
   });
 
+  // Render function - use background image if available, otherwise use gradient
+  const renderBackground = (children: React.ReactNode) => {
+    if (backgroundImage) {
+      return (
+        <ImageBackground
+          key={backgroundKey}
+          source={{ uri: backgroundImage }}
+          style={styles.backgroundImage}
+          resizeMode="cover"
+        >
+          <LinearGradient colors={theme.gradient} style={styles.gradient}>
+            {children}
+          </LinearGradient>
+        </ImageBackground>
+      );
+    } else {
+      return (
+        <LinearGradient colors={['#0a0e27', '#1a1f3a', '#0a0e27']} style={styles.gradient}>
+          {children}
+        </LinearGradient>
+      );
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <ImageBackground
-        key={backgroundKey}
-        source={{ uri: backgroundImage || 'https://customer-assets.emergentagent.com/job_quotetracker-2/artifacts/0xgohmqy_download.jpg' }}
-        style={styles.backgroundImage}
-        resizeMode="cover"
-      >
-        {/* Only show color overlay if NO custom image, otherwise skip it */}
-        {backgroundColor && !backgroundImage && (
-          <View style={[styles.colorOverlay, { backgroundColor: backgroundColor }]} />
-        )}
-        <LinearGradient colors={theme.gradient} style={styles.gradient}>
-          <SafeAreaView style={styles.safeArea}>
+      {renderBackground(
+        <SafeAreaView style={styles.safeArea}>
             {/* User Menu - positioned at top-left edge */}
             <UserMenu />
-            
-            {/* Top Action Buttons Container */}
-            <View style={styles.topActionsContainer}>
-              {/* Brokers Glass Button */}
-              {brokers.length > 0 && (
-                <TouchableOpacity 
-                  style={styles.actionButton}
-                  onPress={() => setShowBrokers(true)}
-                >
-                  <View style={styles.actionGlass}>
-                    <Ionicons name="briefcase" size={18} color="#00D9FF" />
-                    <Text style={styles.actionButtonText}>Brokers</Text>
-                    <View style={styles.actionBadge}>
-                      <Text style={styles.actionBadgeText}>{brokers.length}</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              )}
-
-
-              {/* News Glass Button */}
-              {news.length > 0 && (
-                <TouchableOpacity 
-                  style={styles.actionButton}
-                  onPress={() => setShowNews(true)}
-                >
-                  <View style={styles.actionGlass}>
-                    <Ionicons name="newspaper" size={18} color="#00D9FF" />
-                    <Text style={styles.actionButtonText}>News</Text>
-                    <View style={styles.actionBadge}>
-                      <Text style={styles.actionBadgeText}>{news.length}</Text>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
             
             <View style={styles.content}>
               {/* Top Section - System Name and Status */}
               <View style={styles.topSection}>
                 <View style={styles.titleSection}>
                   <View style={styles.logoContainer}>
-                    <Image 
-                      source={require('../../assets/images/logo_home.png')} 
-                      style={styles.logoImage}
-                      resizeMode="contain"
-                    />
-                    <Text style={[styles.logoText, { textShadowColor: theme.accent }]}>{systemName}</Text>
+                    {/* Logo and system name removed as requested */}
                   </View>
-                  
-                  {selectedEA && (
-                    <View style={styles.eaInfo}>
-                      <View style={[styles.statusBadge, { borderColor: theme.accent }]}>
-                        <View style={[styles.statusDot, { backgroundColor: selectedEA.status === 'running' ? '#00FF88' : '#FF4444' }]} />
-                        <Text style={styles.statusText}>{selectedEA.status === 'running' ? 'RUNNING' : 'STOPPED'}</Text>
-                      </View>
-                      {selectedEA.status === 'running' && (
-                        <View style={[styles.notificationBadge, { borderColor: theme.accent, backgroundColor: `${theme.accent}40` }]}>
-                          <Ionicons name="notifications" size={12} color={theme.accent} />
-                          <Text style={[styles.notificationText, { color: theme.accent }]}>ALERTS ON</Text>
-                        </View>
-                      )}
-                    </View>
-                  )}
                 </View>
               </View>
 
               {/* Main Content Section */}
               <View style={styles.mainContent}>
                 {/* Signal Banner */}
-                {currentSignal !== 'NEUTRAL' && selectedEA?.status === 'running' && (
+                {symbolSignal !== 'NEUTRAL' && isMonitoring && selectedSymbol && (
                   <View style={[styles.signalBanner, { backgroundColor: `${theme.primary}20`, borderColor: theme.primary }]}>
                     <Ionicons 
-                      name={currentSignal === 'BUY' ? 'arrow-up-circle' : 'arrow-down-circle'} 
+                      name={symbolSignal === 'BUY' ? 'arrow-up-circle' : 'arrow-down-circle'} 
                       size={32} 
                       color={theme.primary} 
                     />
                     <Text style={[styles.signalBannerText, { color: theme.primary }]}>
-                      {currentSignal} SIGNAL ACTIVE
+                      {symbolSignal} SIGNAL - {selectedSymbol}
                     </Text>
                   </View>
                 )}
@@ -597,18 +933,18 @@ export default function HomeScreen() {
                 <View style={styles.buttonsSection}>
                   {/* START/STOP Button - Prominent at top */}
                   <TouchableOpacity
-                    style={[styles.button, styles.startStopButton, selectedEA?.status === 'running' && styles.stopButton]}
+                    style={[styles.button, styles.startStopButton, isMonitoring && styles.stopButton]}
                     onPress={handleStartStop}
-                    disabled={!selectedEA}
-                    activeOpacity={0.8}
+                    disabled={false}
+                    activeOpacity={0.7}
                   >
                     <Ionicons 
-                      name={selectedEA?.status === 'running' ? 'stop' : 'play'} 
-                      size={24} 
-                      color={selectedEA?.status === 'running' ? '#fff' : '#000'} 
+                      name={isMonitoring ? 'stop' : 'play'} 
+                      size={20} 
+                      color={isMonitoring ? '#fff' : '#000'} 
                     />
-                    <Text style={[styles.buttonText, selectedEA?.status === 'running' && { color: '#fff' }]}>
-                      {selectedEA?.status === 'running' ? 'STOP' : 'START'}
+                    <Text style={[styles.buttonText, isMonitoring && { color: '#fff' }]}>
+                      {isMonitoring ? 'STOP' : 'START'}
                     </Text>
                   </TouchableOpacity>
 
@@ -616,37 +952,28 @@ export default function HomeScreen() {
                   <TouchableOpacity
                     style={[styles.button, styles.quotesButton, { borderColor: theme.accent, backgroundColor: `${theme.accent}20` }]}
                     onPress={() => setShowSymbolsModal(true)}
-                    activeOpacity={0.8}
+                    activeOpacity={0.7}
                   >
-                    <Ionicons name="stats-chart" size={28} color={theme.accent} />
+                    <Ionicons name="stats-chart" size={22} color={theme.accent} />
                     <Text style={[styles.buttonText, { color: theme.accent }]}>QUOTES</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
                     style={[styles.button, styles.removeButton]}
                     onPress={handleRemove}
-                    activeOpacity={0.8}
+                    activeOpacity={0.7}
                   >
-                    <Ionicons name="trash-outline" size={28} color="#FF4444" />
+                    <Ionicons name="trash-outline" size={22} color="#FF4444" />
                     <Text style={[styles.buttonText, { color: '#FF4444' }]}>REMOVE</Text>
                   </TouchableOpacity>
                 </View>
 
-                {/* Info Box */}
-                {!selectedEA && (
-                  <View style={[styles.infoBox, { borderColor: theme.accent, backgroundColor: `${theme.accent}20` }]}>
-                    <Ionicons name="information-circle" size={24} color={theme.accent} />
-                    <Text style={[styles.infoText, { color: '#fff' }]}>
-                      Tap QUOTES to add your first EA and start trading
-                    </Text>
-                  </View>
-                )}
+                {/* Info Box removed as requested */}
 
               </View>
             </View>
           </SafeAreaView>
-        </LinearGradient>
-      </ImageBackground>
+      )}
 
       {/* Floating Bubble Overlay - Show News Alert + Manual Signals/EA */}
       {upcomingNewsAlert && (
@@ -674,21 +1001,15 @@ export default function HomeScreen() {
         </View>
       )}
       
-      {manualSignal ? (
+      {/* Floating Bubble - Display current signal from queue */}
+      {currentSignal && (
         <FloatingBubble 
-          signal={manualSignal.signal_type}
-          symbol={manualSignal.symbol}
-          indicator={manualSignal.indicator || ''}
-          price={0}
-          candle_pattern={manualSignal.candle_pattern || ''}
-        />
-      ) : selectedEA && selectedEA.status === 'running' && (
-        <FloatingBubble 
-          signal={currentSignal}
-          symbol={selectedEA.config?.symbol || ''}
-          indicator={selectedEA.config?.indicator?.type || ''}
-          price={selectedEA.last_price || 0}
-          candle_pattern=""
+          signal={currentSignal.signal}
+          symbol={currentSignal.symbol}
+          indicator={currentSignal.indicator}
+          price={currentSignal.price}
+          candle_pattern={currentSignal.candle_pattern}
+          onClose={closeCurrentSignal}
         />
       )}
 
@@ -696,6 +1017,7 @@ export default function HomeScreen() {
         visible={showSymbolsModal}
         onClose={() => setShowSymbolsModal(false)}
         onSymbolSelect={handleSymbolSelect}
+        onIndicatorSelect={handleIndicatorSelect}
       />
 
       <AddEAModal
@@ -717,11 +1039,11 @@ export default function HomeScreen() {
         }}
       />
 
-      {/* Brokers Modal with Glass Design */}
+      {/* Brokers Modal with Enhanced Glass Design */}
       <Modal
         visible={showBrokers}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setShowBrokers(false)}
       >
         <View style={styles.brokersModalOverlay}>
@@ -730,54 +1052,80 @@ export default function HomeScreen() {
             <View style={styles.brokersHeader}>
               <Ionicons name="briefcase" size={24} color="#00D9FF" />
               <Text style={styles.brokersTitle}>Brokers</Text>
-              <TouchableOpacity onPress={() => setShowBrokers(false)}>
+              <TouchableOpacity 
+                onPress={() => setShowBrokers(false)}
+                style={styles.closeButton}
+              >
                 <Ionicons name="close" size={28} color="#fff" />
               </TouchableOpacity>
             </View>
 
             {/* Broker List */}
-            <ScrollView style={styles.brokersScroll}>
-              {brokers.map((broker) => (
-                <TouchableOpacity
-                  key={broker._id}
-                  style={styles.brokerCard}
-                  onPress={() => {
-                    if (broker.affiliate_link) {
-                      Linking.openURL(broker.affiliate_link);
-                    }
-                  }}
-                >
-                  <View style={styles.brokerContent}>
-                    <View style={styles.brokerIconContainer}>
-                      <Ionicons name="business" size={32} color="#00D9FF" />
-                    </View>
-                    <View style={styles.brokerInfo}>
-                      <Text style={styles.brokerName}>{broker.broker_name}</Text>
-                      {broker.description && (
-                        <Text style={styles.brokerDescription}>{broker.description}</Text>
-                      )}
-                      <View style={styles.brokerLinkContainer}>
-                        <Ionicons name="link" size={14} color="#00D9FF" />
-                        <Text style={styles.brokerLink} numberOfLines={1}>
-                          {broker.affiliate_link}
-                        </Text>
+            <ScrollView 
+              style={styles.brokersScroll}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 20 }}
+            >
+              {brokers.length > 0 ? (
+                brokers.map((broker, index) => (
+                  <TouchableOpacity
+                    key={broker._id || index}
+                    style={styles.brokerCard}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      if (broker.affiliate_link) {
+                        Linking.openURL(broker.affiliate_link);
+                        setShowBrokers(false);
+                      } else {
+                        Alert.alert('No Link', 'This broker has no affiliate link available.');
+                      }
+                    }}
+                  >
+                    <View style={styles.brokerContent}>
+                      <View style={styles.brokerIconContainer}>
+                        <Ionicons name="business" size={32} color="#00D9FF" />
                       </View>
+                      <View style={styles.brokerInfo}>
+                        <Text style={styles.brokerName}>{broker.broker_name}</Text>
+                        {broker.description && (
+                          <Text style={styles.brokerDescription} numberOfLines={2}>
+                            {broker.description}
+                          </Text>
+                        )}
+                        {broker.affiliate_link && (
+                          <View style={styles.brokerLinkContainer}>
+                            <Ionicons name="link" size={14} color="#00D9FF" />
+                            <Text style={styles.brokerLink} numberOfLines={1}>
+                              {broker.affiliate_link.replace(/^https?:\/\//, '')}
+                            </Text>
+                          </View>
+                        )}
+                        <View style={styles.tapHintContainer}>
+                          <Text style={styles.tapHint}>Tap to open link</Text>
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward" size={24} color="#00D9FF" />
                     </View>
-                    <Ionicons name="chevron-forward" size={20} color="#00D9FF" />
-                  </View>
-                </TouchableOpacity>
-              ))}
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <View style={styles.emptyState}>
+                  <Ionicons name="briefcase-outline" size={64} color="rgba(0, 217, 255, 0.3)" />
+                  <Text style={styles.emptyStateText}>No brokers available</Text>
+                  <Text style={styles.emptyStateSubtext}>Check back later for broker recommendations</Text>
+                </View>
+              )}
             </ScrollView>
           </View>
         </View>
       </Modal>
 
 
-      {/* News Modal with Glass Design */}
+      {/* News Modal with Enhanced Glass Design */}
       <Modal
         visible={showNews}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setShowNews(false)}
       >
         <View style={styles.brokersModalOverlay}>
@@ -786,37 +1134,91 @@ export default function HomeScreen() {
             <View style={styles.brokersHeader}>
               <Ionicons name="newspaper" size={24} color="#00D9FF" />
               <Text style={styles.brokersTitle}>Market News</Text>
-              <TouchableOpacity onPress={() => setShowNews(false)}>
+              <TouchableOpacity 
+                onPress={() => setShowNews(false)}
+                style={styles.closeButton}
+              >
                 <Ionicons name="close" size={28} color="#fff" />
               </TouchableOpacity>
             </View>
 
             {/* News List */}
-            <ScrollView style={styles.brokersScroll}>
-              {news.map((item) => (
-                <View key={item.id} style={styles.newsCard}>
-                  <View style={styles.newsHeader}>
-                    <View style={styles.newsTimeContainer}>
-                      <Ionicons name="time" size={16} color="#00D9FF" />
-                      <Text style={styles.newsTime}>{item.event_time}</Text>
-                    </View>
-                    <View style={[styles.currencyBadge, { backgroundColor: item.impact === 'High' ? '#ff4444' : item.impact === 'Medium' ? '#ffa500' : '#888' }]}>
-                      <Text style={styles.currencyText}>{item.currency}</Text>
-                    </View>
-                  </View>
-                  <Text style={styles.newsTitle}>{item.title}</Text>
-                  <View style={styles.newsFooter}>
-                    <Text style={[styles.impactText, { color: item.impact === 'High' ? '#ff4444' : item.impact === 'Medium' ? '#ffa500' : '#888' }]}>
-                      Impact: {item.impact}
-                    </Text>
-                    {item.signal && (
-                      <View style={[styles.signalBadge, { backgroundColor: item.signal === 'BUY' ? '#00FF88' : '#ff4444' }]}>
-                        <Text style={styles.signalBadgeText}>{item.signal}</Text>
+            <ScrollView 
+              style={styles.brokersScroll}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 20 }}
+            >
+              {news.length > 0 ? (
+                news.map((item, index) => (
+                  <View key={item.id || index} style={styles.newsCard}>
+                    <View style={styles.newsHeaderRow}>
+                      <View style={styles.newsTimeContainer}>
+                        <Ionicons name="time-outline" size={16} color="#00D9FF" />
+                        <Text style={styles.newsTime}>{item.event_time}</Text>
                       </View>
+                      <View style={[styles.currencyBadge, { 
+                        backgroundColor: item.impact === 'High' ? 'rgba(255, 68, 68, 0.2)' : 
+                                       item.impact === 'Medium' ? 'rgba(255, 165, 0, 0.2)' : 
+                                       'rgba(136, 136, 136, 0.2)',
+                        borderWidth: 1,
+                        borderColor: item.impact === 'High' ? '#ff4444' : 
+                                    item.impact === 'Medium' ? '#ffa500' : '#888'
+                      }]}>
+                        <Text style={[styles.currencyText, {
+                          color: item.impact === 'High' ? '#ff4444' : 
+                                item.impact === 'Medium' ? '#ffa500' : '#888'
+                        }]}>{item.currency}</Text>
+                      </View>
+                    </View>
+                    <Text style={styles.newsEventTitle} numberOfLines={2}>{item.title}</Text>
+                    {item.description && (
+                      <Text style={styles.newsDescription} numberOfLines={2}>{item.description}</Text>
                     )}
+                    <View style={styles.newsFooter}>
+                      <View style={[styles.impactBadge, {
+                        backgroundColor: item.impact === 'High' ? 'rgba(255, 68, 68, 0.15)' : 
+                                       item.impact === 'Medium' ? 'rgba(255, 165, 0, 0.15)' : 
+                                       'rgba(136, 136, 136, 0.15)',
+                        borderColor: item.impact === 'High' ? '#ff4444' : 
+                                    item.impact === 'Medium' ? '#ffa500' : '#888'
+                      }]}>
+                        <Ionicons 
+                          name={item.impact === 'High' ? 'alert-circle' : item.impact === 'Medium' ? 'alert' : 'information-circle'} 
+                          size={12} 
+                          color={item.impact === 'High' ? '#ff4444' : item.impact === 'Medium' ? '#ffa500' : '#888'} 
+                        />
+                        <Text style={[styles.impactText, { 
+                          color: item.impact === 'High' ? '#ff4444' : 
+                                item.impact === 'Medium' ? '#ffa500' : '#888' 
+                        }]}>
+                          {item.impact} Impact
+                        </Text>
+                      </View>
+                      {item.signal && (
+                        <View style={[styles.newsSignalBadge, { 
+                          backgroundColor: item.signal === 'BUY' ? 'rgba(0, 255, 136, 0.15)' : 'rgba(255, 68, 68, 0.15)',
+                          borderColor: item.signal === 'BUY' ? '#00FF88' : '#ff4444'
+                        }]}>
+                          <Ionicons 
+                            name={item.signal === 'BUY' ? 'trending-up' : 'trending-down'} 
+                            size={12} 
+                            color={item.signal === 'BUY' ? '#00FF88' : '#ff4444'} 
+                          />
+                          <Text style={[styles.newsSignalText, {
+                            color: item.signal === 'BUY' ? '#00FF88' : '#ff4444'
+                          }]}>{item.signal}</Text>
+                        </View>
+                      )}
+                    </View>
                   </View>
+                ))
+              ) : (
+                <View style={styles.emptyState}>
+                  <Ionicons name="newspaper-outline" size={64} color="rgba(0, 217, 255, 0.3)" />
+                  <Text style={styles.emptyStateText}>No news available</Text>
+                  <Text style={styles.emptyStateSubtext}>Check back later for market updates</Text>
                 </View>
-              ))}
+              )}
             </ScrollView>
           </View>
         </View>
@@ -865,8 +1267,8 @@ const styles = StyleSheet.create({
   
   // Layout styles
   topSection: {
-    paddingTop: 80,
-    paddingBottom: 40,
+    paddingTop: 40, // Further reduced to move buttons down
+    paddingBottom: 10, // Further reduced
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -875,7 +1277,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 4,
     paddingBottom: 24,
-    justifyContent: 'flex-end',
+    justifyContent: 'flex-end', // Keep buttons at bottom when no signal banner
   },
   
   titleSection: { 
@@ -886,6 +1288,30 @@ const styles = StyleSheet.create({
   logoContainer: {
     alignItems: 'center',
     marginBottom: 12,
+    gap: 8,
+  },
+  systemNameContainer: {
+    alignItems: 'center',
+    gap: 4,
+  },
+  systemNameMain: {
+    color: '#fff',
+    fontSize: 32,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+    letterSpacing: 2,
+  },
+  systemNameSub: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    opacity: 0.9,
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+    letterSpacing: 1,
   },
   logoImage: {
     width: 120,
@@ -950,14 +1376,14 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end' 
   },
   signalBanner: { 
-    paddingVertical: 18, 
-    paddingHorizontal: 24, 
+    paddingVertical: 16, // Reduced from 18 to save space
+    paddingHorizontal: 20, // Reduced from 24
     borderRadius: 16, 
-    marginBottom: 24, 
+    marginBottom: 32, // Increased from 24 to create more space between banner and buttons
     flexDirection: 'row', 
     alignItems: 'center', 
     justifyContent: 'center', 
-    gap: 14, 
+    gap: 12, // Reduced from 14
     borderWidth: 2.5,
     backgroundColor: 'rgba(0,0,0,0.7)',
     shadowColor: '#000',
@@ -972,30 +1398,31 @@ const styles = StyleSheet.create({
     letterSpacing: 2.5 
   },
   buttonsSection: { 
-    gap: 14, 
-    marginBottom: 14 
+    gap: 10, 
+    marginBottom: 10,
+    marginTop: 20, // Add margin to push buttons down
   },
   button: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     justifyContent: 'center', 
-    paddingVertical: 22, 
-    borderRadius: 14, 
-    gap: 14, 
-    borderWidth: 2.5, 
+    paddingVertical: 14, // Reduced from 22
+    borderRadius: 12, // Reduced from 14
+    gap: 10, // Reduced from 14
+    borderWidth: 2, // Reduced from 2.5
     shadowColor: '#000', 
-    shadowOffset: { width: 0, height: 6 }, 
-    shadowOpacity: 0.6, 
-    shadowRadius: 10, 
-    elevation: 12,
-    minHeight: 72 
+    shadowOffset: { width: 0, height: 4 }, // Reduced from 6
+    shadowOpacity: 0.5, // Reduced from 0.6
+    shadowRadius: 8, // Reduced from 10
+    elevation: 10, // Reduced from 12
+    minHeight: 56 // Reduced from 72
   },
   startStopButton: { 
     backgroundColor: '#fff', 
     borderColor: '#fff',
-    paddingVertical: 18,
-    minHeight: 65,
-    marginBottom: 14,
+    paddingVertical: 14, // Reduced from 18
+    minHeight: 52, // Reduced from 65
+    marginBottom: 10, // Reduced from 14
     borderWidth: 2,
   },
   stopButton: { 
@@ -1010,10 +1437,10 @@ const styles = StyleSheet.create({
     borderColor: '#FF4444' 
   },
   buttonText: { 
-    fontSize: 19, 
+    fontSize: 16, // Reduced from 19
     fontWeight: 'bold', 
     color: '#000', 
-    letterSpacing: 2.5 
+    letterSpacing: 2 // Reduced from 2.5
   },
   infoBox: { 
     flexDirection: 'row', 
@@ -1217,7 +1644,36 @@ const styles = StyleSheet.create({
     fontSize: 11,
     flex: 1,
   },
-  
+  closeButton: {
+    padding: 4,
+  },
+  tapHintContainer: {
+    marginTop: 4,
+  },
+  tapHint: {
+    color: 'rgba(0, 217, 255, 0.6)',
+    fontSize: 10,
+    fontStyle: 'italic',
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 60,
+    paddingHorizontal: 32,
+  },
+  emptyStateText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 16,
+    textAlign: 'center',
+  },
+  emptyStateSubtext: {
+    color: 'rgba(255, 255, 255, 0.6)',
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
+  },
 
   // Indicators Modal Styles
   indicatorCard: {
@@ -1288,23 +1744,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
   },
-  emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-  },
-  emptyStateText: {
-    color: '#888',
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginTop: 16,
-  },
-  emptyStateSubtext: {
-    color: '#666',
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 8,
-  },
+  // Duplicate styles removed
   
 
   // News Modal Styles
@@ -1397,39 +1837,75 @@ const styles = StyleSheet.create({
     fontSize: 11,
   },
   
-  // Additional News Modal Styles for new format
-  newsCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 217, 255, 0.2)',
-    padding: 16,
-  },
-  newsHeader: {
+  // Enhanced News Modal Styles - duplicate removed
+  newsHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   newsTimeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   newsTime: {
     color: '#00D9FF',
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   currencyBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
   currencyText: {
+    fontSize: 11,
+    fontWeight: 'bold',
+  },
+  newsEventTitle: {
     color: '#fff',
-    fontSize: 10,
+    fontSize: 15,
+    fontWeight: 'bold',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  newsDescription: {
+    color: 'rgba(255, 255, 255, 0.7)',
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: 12,
+  },
+  newsFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  impactBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  impactText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  newsSignalBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  newsSignalText: {
+    fontSize: 11,
     fontWeight: 'bold',
   },
   newsTitle: {
@@ -1438,15 +1914,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 8,
     lineHeight: 20,
-  },
-  newsFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  impactText: {
-    fontSize: 12,
-    fontWeight: '600',
   },
   signalBadge: {
     paddingHorizontal: 8,
@@ -1503,16 +1970,6 @@ const styles = StyleSheet.create({
   newsAlertCurrency: {
     color: '#00D9FF',
     fontSize: 11,
-    fontWeight: 'bold',
-  },
-  newsSignalBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  newsSignalText: {
-    color: '#fff',
-    fontSize: 10,
     fontWeight: 'bold',
   },
 });

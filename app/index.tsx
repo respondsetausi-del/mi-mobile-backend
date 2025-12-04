@@ -40,7 +40,11 @@ export default function LoginScreen() {
     console.log('isAdmin:', isAdmin);
     console.log('loading:', loading);
     
-    if (!email || !password) {
+    // Trim email and password to remove any whitespace
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+    
+    if (!trimmedEmail || !trimmedPassword) {
       console.log('>>> Validation failed - missing fields <<<');
       setErrorMessage({ title: 'Error', message: 'Please fill in all fields' });
       setShowErrorModal(true);
@@ -53,15 +57,16 @@ export default function LoginScreen() {
     try {
       console.log('>>> Attempting login... <<<');
       console.log('Login type:', isAdmin ? 'admin' : 'user');
-      console.log('Email:', email);
+      console.log('Email (trimmed):', trimmedEmail);
+      console.log('Password length (trimmed):', trimmedPassword.length);
 
       const endpoint = isAdmin ? '/api/admin/login' : '/api/auth/login';
       const url = `${API_URL}${endpoint}`;
       console.log('Login URL:', url);
 
       const response = await axios.post(url, {
-        email,
-        password,
+        email: trimmedEmail,
+        password: trimmedPassword,
       });
 
       console.log('Login response:', response.status);
@@ -279,7 +284,7 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0e27',
+    backgroundColor: '#000',
   },
   content: {
     flex: 1,
@@ -310,7 +315,7 @@ const styles = StyleSheet.create({
   toggleContainer: {
     flexDirection: 'row',
     marginBottom: 30,
-    backgroundColor: '#1a1f3a',
+    backgroundColor: '#111',
     borderRadius: 8,
     padding: 4,
   },

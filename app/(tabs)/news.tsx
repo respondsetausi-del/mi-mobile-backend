@@ -1,30 +1,34 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
+  ActivityIndicator,
   RefreshControl,
-  TouchableOpacity,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
+import { StatusBar } from 'expo-status-bar';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
-const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || '';
+const API_URL = Constants.expoConfig?.extra?.backendUrl || Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || 'http://localhost:8001';
+
+interface NewsItem {
+  id: string;
+  title: string;
+  event_time: string;
+  currency: string;
+  impact: string;
+  description?: string;
+  signal?: string;
+}
 
 export default function NewsScreen() {
-  const [news, setNews] = useState<any[]>([]);
+  const [news, setNews] = useState<NewsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-
-  useEffect(() => {
-    fetchNews();
-    const interval = setInterval(fetchNews, 5000); // Refresh every 5 seconds
-    return () => clearInterval(interval);
-  }, []);
 
   const fetchNews = async () => {
     try {
@@ -32,11 +36,14 @@ export default function NewsScreen() {
       if (!token) return;
 
       const response = await fetch(`${API_URL}/api/user/news`, {
-        headers: { 'Authorization': `Bearer ${token}` },
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
       });
 
       if (response.ok) {
         const data = await response.json();
+        console.log('News data:', data);
         setNews(data.news || []);
       }
     } catch (error) {
@@ -47,144 +54,148 @@ export default function NewsScreen() {
     }
   };
 
+  useEffect(() => {
+    fetchNews();
+  }, []);
+
   const onRefresh = () => {
     setRefreshing(true);
     fetchNews();
   };
 
   const getImpactColor = (impact: string) => {
-    switch (impact) {
-      case 'High':
+    switch (impact?.toLowerCase()) {
+      case 'high':
         return '#ff4444';
-      case 'Medium':
+      case 'medium':
         return '#ffa500';
-      case 'Low':
-        return '#888';
       default:
         return '#888';
     }
   };
 
-  const getSignalColor = (signal: string) => {
-    return signal === 'BUY' ? '#00FF88' : '#ff4444';
-  };
+  if (loading) {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#00D9FF" />
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#000000', '#0a0a0a', '#000000']} style={styles.gradient}>
-        <SafeAreaView style={styles.safeArea}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Ionicons name="newspaper" size={32} color="#00D9FF" />
-            <Text style={styles.headerTitle}>Market News</Text>
-          </View>
+      <StatusBar style="light" />
+      
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerContent}>
+          <Ionicons name="newspaper" size={28} color="#00D9FF" />
+          <Text style={styles.headerTitle}>Market News</Text>
+        </View>
+        <Text style={styles.headerSubtitle}>
+          Stay updated with latest market events
+        </Text>
+      </View>
 
-          {/* News List */}
-          <ScrollView
-            style={styles.scrollView}
-            refreshControl={
-              <RefreshControl
-                refreshing={refreshing}
-                onRefresh={onRefresh}
-                tintColor="#00D9FF"
-              />
-            }
-          >
-            {loading ? (
-              <View style={styles.emptyContainer}>
-                <Text style={styles.emptyText}>Loading news...</Text>
-              </View>
-            ) : news.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Ionicons name="newspaper-outline" size={64} color="#333" />
-                <Text style={styles.emptyText}>No news events available</Text>
-                <Text style={styles.emptySubtext}>
-                  Your mentor will post market events here
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#00D9FF"
+            colors={['#00D9FF']}
+          />
+        }
+      >
+        {news.length > 0 ? (
+          news.map((item, index) => (
+            <View key={item.id || index} style={styles.newsCard}>
+              <LinearGradient
+                colors={['rgba(0, 217, 255, 0.08)', 'rgba(0, 217, 255, 0.03)']}
+                style={styles.newsGradient}
+              >
+                {/* Time and Currency Row */}
+                <View style={styles.newsHeader}>
+                  <View style={styles.timeContainer}>
+                    <Ionicons name="time-outline" size={16} color="#00D9FF" />
+                    <Text style={styles.timeText}>{item.event_time}</Text>
+                  </View>
+                  <View style={[styles.currencyBadge, { 
+                    backgroundColor: `${getImpactColor(item.impact)}20`,
+                    borderColor: getImpactColor(item.impact),
+                  }]}>
+                    <Text style={[styles.currencyText, { color: getImpactColor(item.impact) }]}>
+                      {item.currency}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Title */}
+                <Text style={styles.newsTitle} numberOfLines={2}>
+                  {item.title}
                 </Text>
-              </View>
-            ) : (
-              news.map((item, index) => (
-                <View key={item.id || index} style={styles.newsCard}>
-                  {/* Header with Time and Currency */}
-                  <View style={styles.newsCardHeader}>
-                    <View style={styles.timeContainer}>
-                      <Ionicons name="time" size={18} color="#00D9FF" />
-                      <Text style={styles.timeText}>{item.event_time}</Text>
-                    </View>
-                    <View style={styles.badgesContainer}>
-                      {item.source === 'mentor' && (
-                        <View style={styles.sourceBadge}>
-                          <Ionicons name="person" size={12} color="#00D9FF" />
-                          <Text style={styles.sourceText}>Mentor</Text>
-                        </View>
-                      )}
-                      {item.source === 'calendar' && (
-                        <View style={[styles.sourceBadge, { backgroundColor: 'rgba(0, 255, 136, 0.2)' }]}>
-                          <Ionicons name="calendar" size={12} color="#00FF88" />
-                          <Text style={[styles.sourceText, { color: '#00FF88' }]}>Live</Text>
-                        </View>
-                      )}
-                      <View
-                        style={[
-                          styles.currencyBadge,
-                          { backgroundColor: getImpactColor(item.impact) },
-                        ]}
-                      >
-                        <Text style={styles.currencyText}>{item.currency}</Text>
-                      </View>
-                    </View>
+
+                {/* Description */}
+                {item.description && (
+                  <Text style={styles.newsDescription} numberOfLines={3}>
+                    {item.description}
+                  </Text>
+                )}
+
+                {/* Footer with Impact and Signal */}
+                <View style={styles.newsFooter}>
+                  <View style={[styles.impactBadge, {
+                    backgroundColor: `${getImpactColor(item.impact)}15`,
+                    borderColor: getImpactColor(item.impact),
+                  }]}>
+                    <Ionicons 
+                      name={item.impact?.toLowerCase() === 'high' ? 'alert-circle' : 
+                            item.impact?.toLowerCase() === 'medium' ? 'alert' : 'information-circle'} 
+                      size={12} 
+                      color={getImpactColor(item.impact)} 
+                    />
+                    <Text style={[styles.impactText, { color: getImpactColor(item.impact) }]}>
+                      {item.impact} Impact
+                    </Text>
                   </View>
 
-                  {/* News Title */}
-                  <Text style={styles.newsTitle}>{item.title}</Text>
-
-                  {/* Footer with Impact and Signal */}
-                  <View style={styles.newsCardFooter}>
-                    <View style={styles.impactContainer}>
-                      <Ionicons
-                        name="alert-circle"
-                        size={16}
-                        color={getImpactColor(item.impact)}
+                  {item.signal && (
+                    <View style={[styles.signalBadge, { 
+                      backgroundColor: item.signal === 'BUY' ? 'rgba(0, 255, 136, 0.15)' : 'rgba(255, 68, 68, 0.15)',
+                      borderColor: item.signal === 'BUY' ? '#00FF88' : '#ff4444',
+                    }]}>
+                      <Ionicons 
+                        name={item.signal === 'BUY' ? 'trending-up' : 'trending-down'} 
+                        size={12} 
+                        color={item.signal === 'BUY' ? '#00FF88' : '#ff4444'} 
                       />
-                      <Text
-                        style={[
-                          styles.impactText,
-                          { color: getImpactColor(item.impact) },
-                        ]}
-                      >
-                        {item.impact} Impact
+                      <Text style={[styles.signalText, {
+                        color: item.signal === 'BUY' ? '#00FF88' : '#ff4444',
+                      }]}>
+                        {item.signal}
                       </Text>
                     </View>
-
-                    {item.signal && (
-                      <View
-                        style={[
-                          styles.signalBadge,
-                          { backgroundColor: getSignalColor(item.signal) },
-                        ]}
-                      >
-                        <Ionicons
-                          name={
-                            item.signal === 'BUY' ? 'trending-up' : 'trending-down'
-                          }
-                          size={14}
-                          color="#fff"
-                        />
-                        <Text style={styles.signalText}>{item.signal}</Text>
-                      </View>
-                    )}
-                  </View>
-
-                  {/* Timestamp */}
-                  <Text style={styles.timestamp}>
-                    Posted: {new Date(item.created_at).toLocaleString()}
-                  </Text>
+                  )}
                 </View>
-              ))
-            )}
-          </ScrollView>
-        </SafeAreaView>
-      </LinearGradient>
+              </LinearGradient>
+            </View>
+          ))
+        ) : (
+          <View style={styles.emptyState}>
+            <Ionicons name="newspaper-outline" size={80} color="rgba(0, 217, 255, 0.3)" />
+            <Text style={styles.emptyTitle}>No News Available</Text>
+            <Text style={styles.emptySubtitle}>
+              Check back later for market updates
+            </Text>
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -194,58 +205,52 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#000',
   },
-  gradient: {
+  loadingContainer: {
     flex: 1,
-  },
-  safeArea: {
-    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   header: {
+    paddingHorizontal: 20,
+    paddingTop: 60,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 217, 255, 0.2)',
+  },
+  headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 20,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#333',
     gap: 12,
+    marginBottom: 8,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#fff',
   },
+  headerSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.7)',
+    marginLeft: 40,
+  },
   scrollView: {
     flex: 1,
-    padding: 16,
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 100,
-  },
-  emptyText: {
-    color: '#888',
-    fontSize: 18,
-    marginTop: 16,
-    fontWeight: '600',
-  },
-  emptySubtext: {
-    color: '#666',
-    fontSize: 14,
-    marginTop: 8,
-    textAlign: 'center',
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 40,
   },
   newsCard: {
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 16,
-    padding: 16,
     marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
     borderWidth: 1,
-    borderColor: 'rgba(0, 217, 255, 0.2)',
+    borderColor: 'rgba(0, 217, 255, 0.25)',
   },
-  newsCardHeader: {
+  newsGradient: {
+    padding: 16,
+  },
+  newsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -257,78 +262,81 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   timeText: {
-    color: '#00D9FF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  badgesContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  sourceBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 10,
-    backgroundColor: 'rgba(0, 217, 255, 0.2)',
-  },
-  sourceText: {
-    color: '#00D9FF',
-    fontSize: 10,
-    fontWeight: 'bold',
+    fontSize: 12,
+    color: 'rgba(255, 255, 255, 0.7)',
   },
   currencyBadge: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 12,
+    borderWidth: 1,
   },
   currencyText: {
-    color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
   },
   newsTitle: {
-    color: '#fff',
     fontSize: 18,
     fontWeight: 'bold',
-    marginBottom: 12,
+    color: '#fff',
+    marginBottom: 8,
     lineHeight: 24,
   },
-  newsCardFooter: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: 8,
+  newsDescription: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.7)',
+    lineHeight: 20,
+    marginBottom: 12,
   },
-  impactContainer: {
+  newsFooter: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  impactBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
   },
   impactText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
   },
   signalBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    gap: 4,
+    paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 12,
-    gap: 4,
+    borderWidth: 1,
   },
   signalText: {
-    color: '#fff',
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 'bold',
   },
-  timestamp: {
-    color: '#666',
-    fontSize: 11,
-    marginTop: 8,
-    fontStyle: 'italic',
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 100,
+    paddingHorizontal: 40,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 20,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.6)',
+    textAlign: 'center',
+    lineHeight: 20,
   },
 });

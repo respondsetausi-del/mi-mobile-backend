@@ -8,19 +8,17 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal",
       "android": {
-        "buildType": "apk"
+        "buildType": "apk",
+        "credentialsSource": "remote"
       },
-      "ios": {
-        "simulator": true
-      }
+      "distribution": "internal",
+      "developmentClient": false
     },
     "production": {
       "android": {
-        "buildType": "apk"
-      },
-      "node": "20.19.4"
+        "credentialsSource": "remote"
+      }
     }
   },
   "submit": {

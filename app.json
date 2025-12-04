@@ -1,79 +1,75 @@
 {
   "expo": {
-    "name": "MI Mobile Indicator",
-    "slug": "mi-mobile-indicator",
+    "name": "MI Mobile Indicator Fixed",
+    "slug": "mi-mobile-indicator-fixed",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "mimobile",
     "userInterfaceStyle": "dark",
     "newArchEnabled": false,
-    "androidStatusBar": {
-      "backgroundColor": "#000000"
+    "experiments": {
+      "reactCanary": true
     },
-    "splash": {
-      "image": "./assets/images/splash-icon.png",
-      "resizeMode": "contain",
+    "androidStatusBar": {
       "backgroundColor": "#000000"
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.mimobile.indicator",
-      "buildNumber": "1.0.0",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+      "bundleIdentifier": "com.mimobile.indicator.fixed"
     },
     "android": {
-      "package": "com.mimobile.indicator",
-      "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/images/adaptive-icon.png",
-        "backgroundColor": "#000000"
+        "backgroundColor": "#ffffff"
       },
       "permissions": [
-        "INTERNET",
-        "ACCESS_NETWORK_STATE",
-        "VIBRATE",
-        "RECEIVE_BOOT_COMPLETED",
-        "POST_NOTIFICATIONS"
-      ]
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE"
+      ],
+      "package": "com.mimobile.indicator.fixed",
+      "useNextNotificationsApi": true
     },
     "web": {
-      "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/images/favicon.png"
+      "bundler": "metro"
+    },
+    "extra": {
+      "EXPO_PUBLIC_BACKEND_URL": "https://forex-mentor-9.preview.emergentagent.com",
+      "eas": {
+        "projectId": "cad81038-6e38-48e6-8fa9-ceb277ce265d"
+      },
+      "router": {},
+      "backendUrl": "https://forex-mentor-9.preview.emergentagent.com"
     },
     "plugins": [
       "expo-router",
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/splash-icon.png",
+          "image": "./assets/images/splash-image.png",
           "imageWidth": 200,
           "resizeMode": "contain",
-          "backgroundColor": "#000"
+          "backgroundColor": "#0a0e27"
         }
       ],
       [
         "expo-notifications",
         {
-          "color": "#00D9FF"
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#00D9FF",
+          "sounds": []
         }
-      ],
-      "expo-font",
-      "expo-web-browser"
+      ]
     ],
-    "experiments": {
-      "typedRoutes": true
-    },
-    "extra": {
-      "EXPO_PUBLIC_BACKEND_URL": "https://mi-indicator.preview.emergentagent.com",
-      "router": {},
-      "eas": {
-        "projectId": "367149c1-6526-44e3-b54f-feeababa3ec0"
-      }
-    },
-    "owner": "forexaura"
+    "owner": "respondthanos"
   }
 }

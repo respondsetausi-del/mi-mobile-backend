@@ -20,7 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
 const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || 
-                'https://mi-indicator.preview.emergentagent.com';
+                'https://mi-indicator-live.preview.emergentagent.com';
 
 export default function MentorLogin() {
   const [email, setEmail] = useState('');
@@ -29,7 +29,11 @@ export default function MentorLogin() {
   const [showPassword, setShowPassword] = useState(false);
 
   const handleLogin = async () => {
-    if (!email || !password) {
+    // Trim email and password to remove any whitespace
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedPassword = password.trim();
+    
+    if (!trimmedEmail || !trimmedPassword) {
       Alert.alert('Error', 'Please enter both email and password');
       return;
     }
@@ -39,7 +43,8 @@ export default function MentorLogin() {
     try {
       console.log('=== MENTOR LOGIN ATTEMPT ===');
       console.log('API_URL:', API_URL);
-      console.log('Email:', email);
+      console.log('Email (trimmed):', trimmedEmail);
+      console.log('Password length (trimmed):', trimmedPassword.length);
       
       const loginUrl = `${API_URL}/api/mentor/login`;
       console.log('Full URL:', loginUrl);
@@ -50,8 +55,8 @@ export default function MentorLogin() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          email: email.toLowerCase().trim(),
-          password: password,
+          email: trimmedEmail,
+          password: trimmedPassword,
         }),
       });
 

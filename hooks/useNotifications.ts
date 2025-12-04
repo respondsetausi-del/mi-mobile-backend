@@ -35,10 +35,10 @@ export function useNotifications() {
 
     return () => {
       if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
+        notificationListener.current.remove();
       }
       if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+        responseListener.current.remove();
       }
     };
   }, []);
@@ -126,4 +126,23 @@ export function useNotifications() {
     expoPushToken,
     notification,
   };
+}
+
+// Function to show local notification for signal changes
+export async function showSignalNotification(signal: string, systemName: string) {
+  try {
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: `${systemName} - New Signal!`,
+        body: `Signal changed to: ${signal}`,
+        sound: 'default',
+        priority: Notifications.AndroidNotificationPriority.HIGH,
+        data: { signal, systemName },
+      },
+      trigger: null, // Show immediately
+    });
+    console.log('✅ Signal notification sent:', signal);
+  } catch (error) {
+    console.error('❌ Error showing signal notification:', error);
+  }
 }

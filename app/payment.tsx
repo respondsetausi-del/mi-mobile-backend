@@ -34,7 +34,7 @@ export default function PaymentScreen() {
       }
 
       // Construct proper URLs
-      // BACKEND_URL is the base (e.g., https://mi-indicator.preview.emergentagent.com)
+      // BACKEND_URL is the base (e.g., https://mi-indicator-live.preview.emergentagent.com)
       const baseUrl = BACKEND_URL;
       const apiUrl = `${baseUrl}/api`;
       const originUrl = baseUrl; // For Stripe redirect URLs

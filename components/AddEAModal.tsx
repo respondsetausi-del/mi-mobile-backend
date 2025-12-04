@@ -121,22 +121,54 @@ export default function AddEAModal({ visible, symbol, onClose, onSuccess }: AddE
 
   const handleAdd = async () => {
     try {
+      console.log('🔴🔴🔴 ADD TO SIGNALS BUTTON CLICKED!');
+      console.log('📍 Current symbol:', symbol);
+      console.log('📍 Current timeframe:', timeframe);
+      console.log('📍 Current indicatorType:', indicatorType);
+      console.log('📍 Current indicatorParams:', JSON.stringify(indicatorParams));
+      
       setLoading(true);
       
       // Check if this is a custom mentor indicator
       const isMentorIndicator = customIndicators.find(ind => ind.id === indicatorType);
+      console.log('📍 Is mentor indicator?', !!isMentorIndicator);
       
       if (isMentorIndicator) {
         // Subscribe to mentor indicator
+        console.log('📤 Subscribing to mentor indicator:', isMentorIndicator.id);
         await subscribeToIndicator(isMentorIndicator.id, symbol, timeframe);
-        Alert.alert('Success', `${symbol} indicator subscribed successfully!`);
+        console.log('✅ Mentor indicator subscribed successfully');
+        Alert.alert('✅ Success', `${symbol} indicator subscribed successfully!`);
       } else {
-        // Add regular EA - call with correct parameter signature
-        await addEA(symbol, timeframe, indicatorType, indicatorParams);
-        Alert.alert('Success', `${symbol} EA added successfully!`);
+        // Add regular EA - NEW: call with object parameter
+        console.log('📤 Creating signal monitor with params:', {
+          symbol,
+          timeframe,
+          indicatorType,
+          indicatorParams
+        });
+        
+        const eaData = {
+          name: `${symbol} ${indicatorType} Monitor`,
+          config: {
+            symbol,
+            timeframe,
+            indicator: {
+              type: indicatorType,
+              parameters: indicatorParams,
+            },
+          },
+        };
+        
+        console.log('📤 Calling addEA with:', JSON.stringify(eaData));
+        await addEA(eaData);
+        console.log('✅ Signal monitor created successfully via addEA');
+        Alert.alert('✅ Success', `${symbol} signal monitor added successfully!`);
       }
       
+      console.log('🔄 Calling onSuccess callback to refresh list');
       onSuccess();
+      console.log('🔄 Closing modal');
       onClose();
     } catch (error) {
       Alert.alert('Error', `Failed to ${customIndicators.find(ind => ind.id === indicatorType) ? 'subscribe to indicator' : 'add EA'}. Please try again.`);

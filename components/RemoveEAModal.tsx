@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useEAStore } from '../store/eaStore';
@@ -19,71 +20,140 @@ interface RemoveEAModalProps {
 }
 
 export default function RemoveEAModal({ visible, onClose, onSuccess }: RemoveEAModalProps) {
-  const { eas, deleteEA } = useEAStore();
+  const { eas, deleteEA, fetchEAs } = useEAStore();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Reset selection when modal opens
+  useEffect(() => {
+    if (visible) {
+      console.log('📋 RemoveEAModal opened');
+      console.log('📊 Available EAs:', eas.length);
+      setSelectedIds([]);
+      setIsDeleting(false);
+    }
+  }, [visible]);
 
   const toggleSelection = (id: string) => {
-    console.log('Toggle selection for EA ID:', id);
-    if (selectedIds.includes(id)) {
-      console.log('Removing from selection');
-      setSelectedIds(selectedIds.filter(selectedId => selectedId !== id));
-    } else {
-      console.log('Adding to selection');
-      setSelectedIds([...selectedIds, id]);
-    }
+    console.log('🔘 Toggle selection for EA ID:', id);
+    setSelectedIds(prevIds => {
+      if (prevIds.includes(id)) {
+        console.log('➖ Removing from selection');
+        return prevIds.filter(selectedId => selectedId !== id);
+      } else {
+        console.log('➕ Adding to selection');
+        return [...prevIds, id];
+      }
+    });
   };
 
-  const handleRemove = async () => {
-    console.log('🗑️🗑️🗑️ REMOVE BUTTON CLICKED!!! 🗑️🗑️🗑️');
-    console.log('Selected IDs:', selectedIds);
-    console.log('Selected count:', selectedIds.length);
+  const handleRemove = () => {
+    console.log('🗑️ ========== REMOVE BUTTON PRESSED ==========');
+    console.log('📊 Selected IDs:', selectedIds);
+    console.log('📊 Selected count:', selectedIds.length);
+    console.log('📊 Is Deleting:', isDeleting);
     
-    Alert.alert('Button Works!', `You clicked remove with ${selectedIds.length} items selected`);
+    if (isDeleting) {
+      console.log('⏳ Already deleting, ignoring click');
+      return;
+    }
     
     if (selectedIds.length === 0) {
-      Alert.alert('No Selection', 'Please select at least one EA to remove.');
+      console.log('⚠️ No selection made');
+      Alert.alert('No Selection', 'Please select at least one Signal Monitor to remove.');
       return;
     }
 
+    // Show confirmation alert
     Alert.alert(
       'Confirm Removal',
-      `Remove ${selectedIds.length} EA(s)?`,
+      `Are you sure you want to remove ${selectedIds.length} Signal Monitor(s)?\n\nThis action cannot be undone.`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Cancel', 
+          style: 'cancel',
+          onPress: () => console.log('❌ User cancelled removal')
+        },
         {
           text: 'Remove',
           style: 'destructive',
-          onPress: async () => {
-            console.log('✅ User confirmed removal');
-            let successCount = 0;
-            let failCount = 0;
-            
-            for (const id of selectedIds) {
-              try {
-                console.log(`🔄 Deleting EA ID: ${id}`);
-                await deleteEA(id);
-                console.log(`✅ Successfully deleted EA ID: ${id}`);
-                successCount++;
-              } catch (error) {
-                console.error(`❌ Failed to delete EA ID: ${id}`, error);
-                failCount++;
-              }
-            }
-            
-            console.log(`📊 Deletion complete: ${successCount} success, ${failCount} failed`);
-            setSelectedIds([]);
-            
-            if (successCount > 0) {
-              Alert.alert('Success', `Removed ${successCount} EA(s) successfully!`);
-              onSuccess();
-              onClose();
-            } else {
-              Alert.alert('Error', 'Failed to remove EAs. Please try again.');
-            }
-          },
+          onPress: () => performDeletion(),
         },
       ]
     );
+  };
+
+  const performDeletion = async () => {
+    console.log('🚀 ========== STARTING DELETION PROCESS ==========');
+    setIsDeleting(true);
+    
+    let successCount = 0;
+    let failCount = 0;
+    const errors: string[] = [];
+    
+    try {
+      for (let i = 0; i < selectedIds.length; i++) {
+        const id = selectedIds[i];
+        console.log(`\n🔄 [${i + 1}/${selectedIds.length}] Attempting to delete EA ID: ${id}`);
+        
+        try {
+          await deleteEA(id);
+          successCount++;
+          console.log(`✅ [${i + 1}/${selectedIds.length}] Successfully deleted EA ID: ${id}`);
+        } catch (error: any) {
+          failCount++;
+          const errorMsg = error?.message || 'Unknown error';
+          errors.push(`EA ${id}: ${errorMsg}`);
+          console.error(`❌ [${i + 1}/${selectedIds.length}] Failed to delete EA ID: ${id}`, error);
+        }
+      }
+      
+      console.log('\n📊 ========== DELETION SUMMARY ==========');
+      console.log(`✅ Success: ${successCount}`);
+      console.log(`❌ Failed: ${failCount}`);
+      console.log(`📝 Errors:`, errors);
+      
+      // Refresh the EA list
+      console.log('🔄 Refreshing EA list...');
+      await fetchEAs();
+      
+      // Clear selection
+      setSelectedIds([]);
+      
+      // Show result
+      if (successCount > 0 && failCount === 0) {
+        Alert.alert(
+          'Success!', 
+          `Successfully removed ${successCount} Signal Monitor(s).`,
+          [{ text: 'OK', onPress: () => {
+            onSuccess();
+            onClose();
+          }}]
+        );
+      } else if (successCount > 0 && failCount > 0) {
+        Alert.alert(
+          'Partial Success', 
+          `Removed ${successCount} Signal Monitor(s).\n${failCount} failed to remove.`,
+          [{ text: 'OK', onPress: () => {
+            onSuccess();
+            onClose();
+          }}]
+        );
+      } else {
+        Alert.alert(
+          'Error', 
+          `Failed to remove Signal Monitors.\n\n${errors.join('\n')}`,
+          [{ text: 'OK' }]
+        );
+      }
+      
+    } catch (error) {
+      console.error('❌ Unexpected error during deletion:', error);
+      Alert.alert('Error', 'An unexpected error occurred. Please try again.');
+    } finally {
+      setIsDeleting(false);
+      console.log('🏁 ========== DELETION PROCESS COMPLETE ==========\n');
+    }
   };
 
   const getSignalColor = (signal?: string) => {
@@ -144,12 +214,25 @@ export default function RemoveEAModal({ visible, onClose, onSuccess }: RemoveEAM
               {selectedIds.length} selected
             </Text>
             <TouchableOpacity
-              style={[styles.removeButton, selectedIds.length === 0 && styles.removeButtonDisabled]}
+              style={[
+                styles.removeButton, 
+                (selectedIds.length === 0 || isDeleting) && styles.removeButtonDisabled
+              ]}
               onPress={handleRemove}
-              disabled={selectedIds.length === 0}
+              disabled={selectedIds.length === 0 || isDeleting}
+              activeOpacity={0.7}
             >
-              <Ionicons name="trash" size={20} color="#fff" />
-              <Text style={styles.removeButtonText}>REMOVE SELECTED</Text>
+              {isDeleting ? (
+                <>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={styles.removeButtonText}>REMOVING...</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="trash" size={20} color="#fff" />
+                  <Text style={styles.removeButtonText}>REMOVE SELECTED</Text>
+                </>
+              )}
             </TouchableOpacity>
           </View>
         </LinearGradient>

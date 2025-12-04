@@ -49,6 +49,15 @@ export default function TabLayout() {
             ),
           }}
         />
+        <Tabs.Screen
+          name="brokers"
+          options={{
+            title: 'BROKERS',
+            tabBarIcon: ({ color, size }) => (
+              <Ionicons name="business" size={size} color={color} />
+            ),
+          }}
+        />
       </Tabs>
     </AccountStatusGuard>
   );

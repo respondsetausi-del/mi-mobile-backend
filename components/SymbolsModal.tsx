@@ -20,9 +20,10 @@ interface SymbolsModalProps {
   visible: boolean;
   onClose: () => void;
   onSymbolSelect: (symbol: string) => void;
+  onIndicatorSelect?: (indicatorId: string, indicatorName: string) => void;
 }
 
-export default function SymbolsModal({ visible, onClose, onSymbolSelect }: SymbolsModalProps) {
+export default function SymbolsModal({ visible, onClose, onSymbolSelect, onIndicatorSelect }: SymbolsModalProps) {
   const { quotes, fetchQuotes } = useEAStore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -142,8 +143,14 @@ export default function SymbolsModal({ visible, onClose, onSymbolSelect }: Symbo
                     key={`indicator-${item.indicatorData.id}`}
                     style={[styles.symbolRow, styles.indicatorHighlight]}
                     onPress={() => {
-                      onSymbolSelect(item.symbol);
-                      onClose();
+                      console.log('🎯 Indicator clicked:', item.symbol, 'ID:', item.indicatorData.id);
+                      if (onIndicatorSelect) {
+                        onIndicatorSelect(item.indicatorData.id, item.symbol);
+                      } else {
+                        // Fallback to old behavior if handler not provided
+                        onSymbolSelect(item.symbol);
+                        onClose();
+                      }
                     }}
                     activeOpacity={0.7}
                   >

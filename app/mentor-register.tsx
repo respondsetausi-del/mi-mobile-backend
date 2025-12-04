@@ -19,7 +19,7 @@ import axios from 'axios';
 import Constants from 'expo-constants';
 
 const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || 
-                'https://mi-indicator.preview.emergentagent.com';
+                'https://mi-indicator-live.preview.emergentagent.com';
 
 export default function MentorRegister() {
   const [name, setName] = useState('');

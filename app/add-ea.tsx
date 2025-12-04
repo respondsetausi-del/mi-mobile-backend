@@ -83,7 +83,7 @@ export default function AddEAScreen() {
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
-      Alert.alert('Error', 'Please enter EA name');
+      Alert.alert('Error', 'Please enter a monitor name');
       return;
     }
     if (!formData.symbol) {
@@ -93,6 +93,14 @@ export default function AddEAScreen() {
 
     setLoading(true);
     try {
+      console.log('📝 Creating signal monitor with config:', {
+        name: formData.name,
+        symbol: formData.symbol,
+        timeframe: formData.timeframe,
+        indicatorType: formData.indicatorType,
+        params: formData.indicatorParams
+      });
+      
       await addEA({
         name: formData.name,
         config: {
@@ -104,10 +112,13 @@ export default function AddEAScreen() {
           },
         },
       });
-      Alert.alert('Success', 'EA configured successfully!');
+      
+      console.log('✅ Signal monitor created successfully');
+      Alert.alert('Success', 'Signal monitor configured successfully!');
       router.back();
     } catch (error) {
-      Alert.alert('Error', 'Failed to add EA. Please try again.');
+      console.error('❌ Error creating signal monitor:', error);
+      Alert.alert('Error', 'Failed to create signal monitor. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -308,20 +319,20 @@ export default function AddEAScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.header}>
-              <Ionicons name="settings" size={48} color="#00D9FF" />
-              <Text style={styles.headerTitle}>Configure Trading Bot</Text>
-              <Text style={styles.headerSubtitle}>Set up your EA with indicators</Text>
+              <Ionicons name="analytics" size={48} color="#00D9FF" />
+              <Text style={styles.headerTitle}>Configure Signal Monitor</Text>
+              <Text style={styles.headerSubtitle}>Set up your signal monitoring with indicators</Text>
             </View>
 
             <View style={styles.form}>
-              {/* EA Name */}
+              {/* Monitor Name */}
               <View style={styles.inputGroup}>
-                <Text style={styles.label}>EA Name</Text>
+                <Text style={styles.label}>Monitor Name</Text>
                 <View style={styles.inputContainer}>
-                  <Ionicons name="cube-outline" size={20} color="#666" style={styles.inputIcon} />
+                  <Ionicons name="pulse-outline" size={20} color="#666" style={styles.inputIcon} />
                   <TextInput
                     style={styles.input}
-                    placeholder="e.g., EUR/USD RSI Bot"
+                    placeholder="e.g., EUR/USD RSI Monitor"
                     placeholderTextColor="#555"
                     value={formData.name}
                     onChangeText={(text) => setFormData({ ...formData, name: text })}
@@ -426,7 +437,7 @@ export default function AddEAScreen() {
               ) : (
                 <>
                   <Ionicons name="checkmark-circle" size={24} color="#000" />
-                  <Text style={styles.submitButtonText}>CREATE EA</Text>
+                  <Text style={styles.submitButtonText}>CREATE MONITOR</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -538,6 +549,7 @@ const styles = StyleSheet.create({
   },
   picker: {
     color: '#fff',
+    backgroundColor: 'rgba(0,0,0,0.8)', // Dark background for picker
     height: 50,
   },
   settingsContainer: {
