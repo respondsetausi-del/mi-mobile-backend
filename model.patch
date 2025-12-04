@@ -1,0 +1,12 @@
+diff --git a/frontend b/frontend
+--- a/frontend
++++ b/frontend
+@@ -1 +1 @@
+-Subproject commit a147ac165f527634cb6dadfd4f12bdac94312b97
++Subproject commit a147ac165f527634cb6dadfd4f12bdac94312b97-dirty
+diff --git a/mi-mobile-complete-export/frontend b/mi-mobile-complete-export/frontend
+--- a/mi-mobile-complete-export/frontend
++++ b/mi-mobile-complete-export/frontend
+@@ -1 +1 @@
+-Subproject commit a147ac165f527634cb6dadfd4f12bdac94312b97
++Subproject commit a147ac165f527634cb6dadfd4f12bdac94312b97-dirty
