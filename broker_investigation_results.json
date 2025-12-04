@@ -1,0 +1,62 @@
+[
+  {
+    "test": "Admin Login",
+    "success": true,
+    "details": "Logged in as admin successfully",
+    "timestamp": "2025-11-09T11:34:14.331066"
+  },
+  {
+    "test": "Find User",
+    "success": true,
+    "details": "Found user ID: 690c9da33de77738e3174380",
+    "timestamp": "2025-11-09T11:34:14.370874"
+  },
+  {
+    "test": "Reset User Password",
+    "success": true,
+    "details": "Generated temp password: NAc92eI6rx&x",
+    "timestamp": "2025-11-09T11:34:14.800291"
+  },
+  {
+    "test": "User Login",
+    "success": true,
+    "details": "Logged in as collenbelly7@icloud.com, Status: active, Payment: paid",
+    "timestamp": "2025-11-09T11:34:15.050570"
+  },
+  {
+    "test": "Check Broker Collection",
+    "success": true,
+    "details": "Broker collection is EMPTY - This explains why no brokers appear!",
+    "timestamp": "2025-11-09T11:34:15.128431"
+  },
+  {
+    "test": "User Brokers Endpoint",
+    "success": true,
+    "details": "Returned 2 brokers, 2 unseen",
+    "timestamp": "2025-11-09T11:34:15.231570"
+  },
+  {
+    "test": "User Mentor Assignment",
+    "success": true,
+    "details": "Mentor ID: MENTOR0001, System: Sniper",
+    "timestamp": "2025-11-09T11:34:15.271830"
+  },
+  {
+    "test": "Check User Profile for Investigation",
+    "success": true,
+    "details": "User email: collenbelly7@icloud.com, Status: active, Payment: paid",
+    "timestamp": "2025-11-09T11:34:15.351785"
+  },
+  {
+    "test": "Create Test Broker",
+    "success": true,
+    "details": "Created broker ID: 69107c37ff2ef63937b1bb6e, Notified 2 users",
+    "timestamp": "2025-11-09T11:34:15.393881"
+  },
+  {
+    "test": "Re-test User Brokers After Creation",
+    "success": true,
+    "details": "Now returns 3 brokers, 3 unseen",
+    "timestamp": "2025-11-09T11:34:17.440117"
+  }
+]
