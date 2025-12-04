@@ -29,15 +29,15 @@ In the Render dashboard, add these environment variables:
 ```
 MONGO_URL=mongodb+srv://<your-username>:<your-password>@cluster0.xxxxx.mongodb.net/
 DB_NAME=mi_mobile_indicator
-JWT_SECRET_KEY=a1b2c3d4e5f6g7h8i9j0k1l2m3n4o5p6q7r8s9t0u1v2w3x4y5z6
-STRIPE_API_KEY=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
-TWELVE_DATA_API_KEY=fade197d6af1440ba7cb285ebeed3306
+JWT_SECRET_KEY=<your-jwt-secret-key>
+STRIPE_API_KEY=<your-stripe-secret-key>
+TWELVE_DATA_API_KEY=<your-twelve-data-api-key>
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
-SMTP_USER=mimobileindicator@gmail.com
-SMTP_PASSWORD=MImobileindicor@1
-SENDER_EMAIL=mimobileindicator@gmail.com
-MARKETAUX_API_KEY=OEFGTIfdJUTFSiamPg4kaY4VXtuViV3gBULDwzLW
+SMTP_USER=<your-email>
+SMTP_PASSWORD=<your-email-password>
+SENDER_EMAIL=<your-sender-email>
+MARKETAUX_API_KEY=<your-marketaux-api-key>
 ```
 
 ### 4. Deploy
