@@ -24,7 +24,7 @@ from license_manager import LicenseManager
 from models import User, Admin, UserActivity
 import string
 import secrets
-from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
+import stripe
 from email_service import email_service
 from technical_analysis_service import get_technical_analysis_service
 
@@ -2925,25 +2925,36 @@ async def create_payment_checkout(
         if existing_payment:
             raise HTTPException(status_code=400, detail="Payment already completed for this user")
         
-        # Initialize Stripe checkout
-        host_url = request.origin_url
-        webhook_url = f"{host_url}/api/webhook/stripe"
-        stripe_checkout = StripeCheckout(api_key=stripe_api_key, webhook_url=webhook_url)
+        # Initialize Stripe
+        stripe.api_key = stripe_api_key
+        host_url = str(request.base_url).rstrip('/')
         
         # Build success and cancel URLs
         success_url = f"{host_url}/waiting-approval?session_id={{CHECKOUT_SESSION_ID}}"
         cancel_url = f"{host_url}/payment-cancel"
         
         # Fixed price: $35 USD
-        amount = 35.00
+        amount = 3500  # Stripe uses cents
         currency = "usd"
         
-        # Create checkout session
-        checkout_request = CheckoutSessionRequest(
-            amount=amount,
-            currency=currency,
+        # Create checkout session using standard Stripe SDK
+        session = stripe.checkout.Session.create(
+            payment_method_types=['card'],
+            line_items=[{
+                'price_data': {
+                    'currency': currency,
+                    'product_data': {
+                        'name': 'MI Mobile Indicator - Lifetime Access',
+                        'description': 'Full access to forex trading signals and indicators',
+                    },
+                    'unit_amount': amount,
+                },
+                'quantity': 1,
+            }],
+            mode='payment',
             success_url=success_url,
             cancel_url=cancel_url,
+            customer_email=user_email,
             metadata={
                 "user_id": str(user_id),
                 "user_email": user_email,
@@ -2951,14 +2962,12 @@ async def create_payment_checkout(
             }
         )
         
-        session: CheckoutSessionResponse = await stripe_checkout.create_checkout_session(checkout_request)
-        
         # Store transaction in database
         transaction_data = {
-            "session_id": session.session_id,
+            "session_id": session.id,
             "user_id": str(user_id),
             "user_email": user_email,
-            "amount": amount,
+            "amount": 35.00,  # Store in dollars for consistency
             "currency": currency,
             "payment_status": "pending",
             "stripe_status": "initiated",
@@ -2973,11 +2982,11 @@ async def create_payment_checkout(
         
         await db.payment_transactions.insert_one(transaction_data)
         
-        logger.info(f"Payment checkout created for user {user_id}: session {session.session_id}")
+        logger.info(f"Payment checkout created for user {user_id}: session {session.id}")
         
         return {
             "url": session.url,
-            "session_id": session.session_id
+            "session_id": session.id
         }
         
     except HTTPException:
