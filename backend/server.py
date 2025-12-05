@@ -24,7 +24,7 @@ from license_manager import LicenseManager
 from models import User, Admin, UserActivity
 import string
 import secrets
-from emergentintegrations.payments.stripe.checkout import StripeCheckout, CheckoutSessionResponse, CheckoutStatusResponse, CheckoutSessionRequest
+import stripe
 from email_service import email_service
 from technical_analysis_service import get_technical_analysis_service
 
