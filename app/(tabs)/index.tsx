@@ -873,15 +873,13 @@ export default function HomeScreen() {
 
   // Render function - use background image if available, otherwise use gradient
   const renderBackground = (children: React.ReactNode) => {
-    // Always use the US30 PRO wallpaper with dark overlay
+    // Use the US30 PRO wallpaper at full visibility (no dark overlay)
     return (
       <ImageBackground
         source={require('../../assets/images/wallpaper.jpg')}
         style={styles.backgroundImage}
         resizeMode="cover"
-        imageStyle={{ opacity: 0.3 }}
       >
-        <View style={styles.overlay} />
         {children}
       </ImageBackground>
     );
