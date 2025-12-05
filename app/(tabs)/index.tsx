@@ -873,26 +873,18 @@ export default function HomeScreen() {
 
   // Render function - use background image if available, otherwise use gradient
   const renderBackground = (children: React.ReactNode) => {
-    if (backgroundImage) {
-      return (
-        <ImageBackground
-          key={backgroundKey}
-          source={{ uri: backgroundImage }}
-          style={styles.backgroundImage}
-          resizeMode="cover"
-        >
-          <LinearGradient colors={theme.gradient} style={styles.gradient}>
-            {children}
-          </LinearGradient>
-        </ImageBackground>
-      );
-    } else {
-      return (
-        <LinearGradient colors={['#0a0e27', '#1a1f3a', '#0a0e27']} style={styles.gradient}>
-          {children}
-        </LinearGradient>
-      );
-    }
+    // Always use the US30 PRO wallpaper with dark overlay
+    return (
+      <ImageBackground
+        source={require('../../assets/images/wallpaper.jpg')}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+        imageStyle={{ opacity: 0.3 }}
+      >
+        <View style={styles.overlay} />
+        {children}
+      </ImageBackground>
+    );
   };
 
   return (
@@ -1242,6 +1234,10 @@ const styles = StyleSheet.create({
     flex: 1, 
     width: '100%', 
     height: '100%' 
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
   colorOverlay: { 
     position: 'absolute', 
