@@ -33,7 +33,7 @@
     "@react-navigation/native": "^7.1.6",
     "@stripe/stripe-react-native": "0.50.3",
     "axios": "^1.13.0",
-    "expo": "^54.0.26",
+    "expo": "^54.0.27",
     "expo-background-fetch": "^14.0.8",
     "expo-blur": "~15.0.7",
     "expo-clipboard": "^8.0.7",

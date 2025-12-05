@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   Image,
+  ImageBackground,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import axios from 'axios';
@@ -16,6 +17,14 @@ import { Ionicons } from '@expo/vector-icons';
 import ConfirmModal from '../components/ConfirmModal';
 
 const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || '';
+
+// Axios instance with timeout for faster failures
+const apiClient = axios.create({
+  timeout: 15000, // 15 seconds timeout
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -64,7 +73,7 @@ export default function LoginScreen() {
       const url = `${API_URL}${endpoint}`;
       console.log('Login URL:', url);
 
-      const response = await axios.post(url, {
+      const response = await apiClient.post(url, {
         email: trimmedEmail,
         password: trimmedPassword,
       });
@@ -161,7 +170,14 @@ export default function LoginScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.content}>
+      <ImageBackground
+        source={require('../assets/images/wallpaper.jpg')}
+        style={styles.backgroundImage}
+        resizeMode="cover"
+        imageStyle={{ opacity: 0.3 }}
+      >
+        <View style={styles.overlay} />
+        <View style={styles.content}>
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.logo}>MI</Text>
@@ -267,6 +283,7 @@ export default function LoginScreen() {
           <Text style={styles.footerText}>© 2025 MI. All rights reserved.</Text>
         </View>
       </View>
+      </ImageBackground>
 
       {/* Error Modal */}
       <ConfirmModal
@@ -285,6 +302,15 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#000',
+  },
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  overlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
   },
   content: {
     flex: 1,
