@@ -2232,6 +2232,21 @@ export default function MentorDashboard() {
         }}
         onCancel={() => setShowLicenseModal(false)}
       />
+
+      {/* Bottom Navigation */}
+      <View style={styles.bottomNav}>
+        <TouchableOpacity style={styles.navItem}>
+          <Ionicons name="speedometer" size={24} color="#00D9FF" />
+          <Text style={styles.navItemTextActive}>Dashboard</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.navItem}
+          onPress={() => router.push('/mentor-branding')}
+        >
+          <Ionicons name="brush-outline" size={24} color="#666" />
+          <Text style={styles.navItemText}>Branding</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -2835,5 +2850,29 @@ const styles = StyleSheet.create({
     color: '#000',
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: '#0a0e27',
+    borderTopWidth: 1,
+    borderTopColor: '#333',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  navItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  navItemTextActive: {
+    color: '#00D9FF',
+    fontSize: 12,
+    marginTop: 4,
+    fontWeight: '600',
+  },
+  navItemText: {
+    color: '#666',
+    fontSize: 12,
+    marginTop: 4,
   },
 });
