@@ -873,13 +873,14 @@ export default function HomeScreen() {
 
   // Render function - use background image if available, otherwise use gradient
   const renderBackground = (children: React.ReactNode) => {
-    // Use the US30 PRO wallpaper at full visibility (no dark overlay)
+    // Use the US30 PRO wallpaper with very light overlay for text visibility
     return (
       <ImageBackground
         source={require('../../assets/images/wallpaper.jpg')}
         style={styles.backgroundImage}
         resizeMode="cover"
       >
+        <View style={styles.lightOverlay} />
         {children}
       </ImageBackground>
     );
@@ -1236,6 +1237,10 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  },
+  lightOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
   colorOverlay: { 
     position: 'absolute', 
