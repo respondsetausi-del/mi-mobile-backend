@@ -378,6 +378,193 @@ async def health_check():
         "database": "connected"
     }
 
+@api_router.post("/initialize-database", response_model=dict)
+async def initialize_database():
+    """
+    Initialize database with default admin, mentors, and test users.
+    This endpoint should only be called once during initial setup.
+    """
+    try:
+        result = {"status": "success", "created": [], "existing": []}
+        
+        # 1. CREATE ADMIN
+        admin_email = "admin@signalmaster.com"
+        existing_admin = await db.admins.find_one({"email": admin_email})
+        
+        if not existing_admin:
+            admin_doc = {
+                "email": admin_email,
+                "password_hash": get_password_hash("Admin@123"),
+                "name": "System Admin",
+                "role": "super_admin",
+                "permissions": ["view_users", "manage_users", "view_activity", "manage_licenses"],
+                "created_at": datetime.utcnow(),
+                "last_login": None
+            }
+            await db.admins.insert_one(admin_doc)
+            result["created"].append("Admin: admin@signalmaster.com")
+        else:
+            result["existing"].append("Admin: admin@signalmaster.com")
+        
+        # 2. GENERATE LICENSE KEYS
+        existing_licenses = await db.licenses.count_documents({})
+        if existing_licenses < 20:
+            keys_to_generate = 20 - existing_licenses
+            keys = LicenseManager.generate_multiple_keys(keys_to_generate)
+            licenses = [
+                {
+                    "key": key,
+                    "used": False,
+                    "created_at": datetime.utcnow(),
+                    "created_by": "system"
+                }
+                for key in keys
+            ]
+            await db.licenses.insert_many(licenses)
+            result["created"].append(f"{keys_to_generate} license keys")
+        else:
+            result["existing"].append(f"{existing_licenses} license keys")
+        
+        # Get available licenses
+        available_licenses = await db.licenses.find({"used": False}).limit(10).to_list(length=10)
+        
+        # 3. CREATE MENTORS
+        mentors_data = [
+            {
+                "email": "mentor1@signalmaster.com",
+                "name": "John Mentor",
+                "mentor_id": "MENTOR001",
+                "company_name": "Signal Masters Pro",
+                "max_users": 50
+            },
+            {
+                "email": "mentor2@signalmaster.com",
+                "name": "Sarah Mentor",
+                "mentor_id": "MENTOR002",
+                "company_name": "Forex Experts",
+                "max_users": 30
+            }
+        ]
+        
+        for mentor_data in mentors_data:
+            existing_mentor = await db.mentors.find_one({"email": mentor_data["email"]})
+            if not existing_mentor:
+                mentor_doc = {
+                    "email": mentor_data["email"],
+                    "password_hash": get_password_hash("Mentor@123"),
+                    "name": mentor_data["name"],
+                    "mentor_id": mentor_data["mentor_id"],
+                    "company_name": mentor_data["company_name"],
+                    "phone": "+1234567890",
+                    "status": "active",
+                    "max_users": mentor_data["max_users"],
+                    "current_users": 0,
+                    "branding": {
+                        "logo_url": "",
+                        "primary_color": "#00D9FF",
+                        "company_name": mentor_data["company_name"]
+                    },
+                    "brokers": [],
+                    "created_at": datetime.utcnow(),
+                    "approved_at": datetime.utcnow(),
+                    "last_login": None
+                }
+                await db.mentors.insert_one(mentor_doc)
+                result["created"].append(f"Mentor: {mentor_data['email']}")
+            else:
+                result["existing"].append(f"Mentor: {mentor_data['email']}")
+        
+        # 4. CREATE TEST USERS
+        if len(available_licenses) >= 3:
+            test_users = [
+                {
+                    "email": "testuser@signalmaster.com",
+                    "name": "Test User",
+                    "mentor_id": "MENTOR001",
+                    "status": "active",
+                    "payment_status": "paid",
+                    "approved": True
+                },
+                {
+                    "email": "testuser2@signalmaster.com",
+                    "name": "Test User 2",
+                    "mentor_id": "MENTOR001",
+                    "status": "pending",
+                    "payment_status": "unpaid",
+                    "approved": False
+                },
+                {
+                    "email": "testuser3@signalmaster.com",
+                    "name": "Test User 3",
+                    "mentor_id": "MENTOR002",
+                    "status": "pending",
+                    "payment_status": "paid",
+                    "approved": False
+                }
+            ]
+            
+            for idx, user_data in enumerate(test_users):
+                if idx >= len(available_licenses):
+                    break
+                    
+                existing_user = await db.users.find_one({"email": user_data["email"]})
+                if not existing_user:
+                    user_doc = {
+                        "email": user_data["email"],
+                        "password_hash": get_password_hash("Test@123"),
+                        "name": user_data["name"],
+                        "mentor_id": user_data["mentor_id"],
+                        "license_key": available_licenses[idx]["key"],
+                        "status": user_data["status"],
+                        "payment_status": user_data["payment_status"],
+                        "created_at": datetime.utcnow(),
+                        "last_login": None
+                    }
+                    if user_data["approved"]:
+                        user_doc["approved_at"] = datetime.utcnow()
+                    
+                    user_result = await db.users.insert_one(user_doc)
+                    
+                    # Mark license as used
+                    await db.licenses.update_one(
+                        {"key": available_licenses[idx]["key"]},
+                        {"$set": {"used": True, "used_by": str(user_result.inserted_id), "used_at": datetime.utcnow()}}
+                    )
+                    result["created"].append(f"User: {user_data['email']}")
+                else:
+                    result["existing"].append(f"User: {user_data['email']}")
+        
+        # 5. CREATE INDEXES
+        try:
+            await db.users.create_index("email", unique=True)
+            await db.admins.create_index("email", unique=True)
+            await db.mentors.create_index("email", unique=True)
+            await db.mentors.create_index("mentor_id", unique=True)
+            await db.licenses.create_index("key", unique=True)
+            result["created"].append("Database indexes")
+        except:
+            result["existing"].append("Database indexes")
+        
+        result["credentials"] = {
+            "admin": {"email": "admin@signalmaster.com", "password": "Admin@123"},
+            "mentors": [
+                {"email": "mentor1@signalmaster.com", "password": "Mentor@123", "id": "MENTOR001"},
+                {"email": "mentor2@signalmaster.com", "password": "Mentor@123", "id": "MENTOR002"}
+            ],
+            "users": [
+                {"email": "testuser@signalmaster.com", "password": "Test@123", "status": "active_paid"},
+                {"email": "testuser2@signalmaster.com", "password": "Test@123", "status": "unpaid"},
+                {"email": "testuser3@signalmaster.com", "password": "Test@123", "status": "paid_pending_approval"}
+            ]
+        }
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Database initialization error: {e}")
+        raise HTTPException(status_code=500, detail=f"Initialization failed: {str(e)}")
+
+
 # ==================== AUTHENTICATION ROUTES ====================
 
 @api_router.post("/auth/register", response_model=dict)
