@@ -2964,10 +2964,10 @@ async def create_payment_checkout(
         
         # Store transaction in database
         transaction_data = {
-            "session_id": session.session_id,
+            "session_id": session.id,
             "user_id": str(user_id),
             "user_email": user_email,
-            "amount": amount,
+            "amount": 35.00,  # Store in dollars for consistency
             "currency": currency,
             "payment_status": "pending",
             "stripe_status": "initiated",
@@ -2982,11 +2982,11 @@ async def create_payment_checkout(
         
         await db.payment_transactions.insert_one(transaction_data)
         
-        logger.info(f"Payment checkout created for user {user_id}: session {session.session_id}")
+        logger.info(f"Payment checkout created for user {user_id}: session {session.id}")
         
         return {
             "url": session.url,
-            "session_id": session.session_id
+            "session_id": session.id
         }
         
     except HTTPException:
