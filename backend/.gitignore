@@ -1,5 +1,9 @@
 __pycache__/
 *.py[cod]
+<<<<<<< HEAD
+.env
+.venv
+=======
 *$py.class
 *.so
 .Python
@@ -23,5 +27,6 @@ wheels/
 env/
 venv/
 ENV/
+>>>>>>> 8cd9fb2 (Initial commit: MI Mobile Indicator Backend (secrets removed))
 *.log
 .DS_Store
