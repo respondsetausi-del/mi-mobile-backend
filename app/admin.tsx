@@ -1604,6 +1604,15 @@ export default function AdminDashboard() {
               <View key={idx} style={styles.listItem}>
                 <Ionicons name="key" size={16} color="#00D9FF" />
                 <Text style={styles.listItemText}>{license}</Text>
+                <TouchableOpacity
+                  style={styles.copyButton}
+                  onPress={async () => {
+                    await Clipboard.setStringAsync(license);
+                    Alert.alert('Copied!', 'License key copied to clipboard');
+                  }}
+                >
+                  <Ionicons name="copy-outline" size={18} color="#00D9FF" />
+                </TouchableOpacity>
               </View>
             ))}
             {licenses.length > 10 && (
@@ -2416,6 +2425,14 @@ const styles = StyleSheet.create({
   listItemText: {
     color: '#fff',
     fontSize: 14,
+    flex: 1,
+  },
+  copyButton: {
+    padding: 8,
+    backgroundColor: 'rgba(0, 217, 255, 0.1)',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#00D9FF',
   },
   userCountBadge: {
     backgroundColor: '#00D9FF',

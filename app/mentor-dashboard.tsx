@@ -21,6 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 import Slider from '@react-native-community/slider';
 import Constants from 'expo-constants';
 import * as Clipboard from 'expo-clipboard';
+import InputModal from '../components/InputModal';
 
 const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || '';
 
@@ -36,6 +37,9 @@ export default function MentorDashboard() {
   // Password reset modal states
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [tempPasswordData, setTempPasswordData] = useState({ email: '', password: '' });
+  
+  // License generation modal state
+  const [showLicenseModal, setShowLicenseModal] = useState(false);
   
   // Branding states
   const [editingSystemName, setEditingSystemName] = useState(false);
@@ -800,39 +804,34 @@ export default function MentorDashboard() {
     }
   };
 
-  const generateLicenses = async () => {
-    Alert.prompt(
-      'Generate License Keys',
-      'How many keys to generate? (1-100)',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Generate',
-          onPress: async (count) => {
-            try {
-              const token = await AsyncStorage.getItem('mentorToken');
-              const response = await fetch(`${API_URL}/api/mentor/licenses/generate`, {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${token}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ count: parseInt(count) || 10 }),
-              });
+  const generateLicenses = async (countStr: string) => {
+    try {
+      const count = parseInt(countStr) || 10;
+      if (count < 1 || count > 100) {
+        Alert.alert('Error', 'Please enter a number between 1 and 100');
+        return;
+      }
 
-              if (response.ok) {
-                Alert.alert('Success', `Generated ${count} license keys`);
-                loadDashboard();
-              }
-            } catch (error) {
-              Alert.alert('Error', 'Failed to generate licenses');
-            }
-          },
+      const token = await AsyncStorage.getItem('mentorToken');
+      const response = await fetch(`${API_URL}/api/mentor/licenses/generate`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
         },
-      ],
-      'plain-text',
-      '10'
-    );
+        body: JSON.stringify({ count }),
+      });
+
+      if (response.ok) {
+        Alert.alert('Success', `Generated ${count} license keys`);
+        loadDashboard();
+      } else {
+        const error = await response.json();
+        Alert.alert('Error', error.detail || 'Failed to generate licenses');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to generate licenses');
+    }
   };
 
   const updateSystemName = async () => {
@@ -969,7 +968,7 @@ export default function MentorDashboard() {
 
         {/* Quick Actions */}
         <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.actionButton} onPress={generateLicenses}>
+          <TouchableOpacity style={styles.actionButton} onPress={() => setShowLicenseModal(true)}>
             <Ionicons name="add-circle" size={20} color="#fff" />
             <Text style={styles.actionButtonText}>Generate Keys</Text>
           </TouchableOpacity>
@@ -2218,6 +2217,21 @@ export default function MentorDashboard() {
           </View>
         </View>
       </Modal>
+
+      {/* License Generation Modal */}
+      <InputModal
+        visible={showLicenseModal}
+        title="Generate License Keys"
+        message="How many keys to generate? (1-100)"
+        placeholder="10"
+        defaultValue="10"
+        keyboardType="numeric"
+        onConfirm={(value) => {
+          setShowLicenseModal(false);
+          generateLicenses(value);
+        }}
+        onCancel={() => setShowLicenseModal(false)}
+      />
     </SafeAreaView>
   );
 }

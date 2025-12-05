@@ -73,10 +73,45 @@ export default function LoginScreen() {
       const url = `${API_URL}${endpoint}`;
       console.log('Login URL:', url);
 
-      const response = await apiClient.post(url, {
-        email: trimmedEmail,
-        password: trimmedPassword,
-      });
+      // Retry logic for backend wake-up (Render free tier)
+      let response;
+      let retryCount = 0;
+      const maxRetries = 2;
+      
+      while (retryCount <= maxRetries) {
+        try {
+          response = await apiClient.post(url, {
+            email: trimmedEmail,
+            password: trimmedPassword,
+          });
+          // Success - break out of retry loop
+          break;
+        } catch (error: any) {
+          retryCount++;
+          console.log(`Login attempt ${retryCount} failed`);
+          
+          if (retryCount <= maxRetries && (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout'))) {
+            // Backend might be waking up, retry with longer timeout
+            console.log('Backend may be sleeping, retrying with extended timeout...');
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
+            
+            // Create new client with longer timeout for retry
+            const retryClient = axios.create({
+              timeout: 60000, // 60 seconds for wake-up
+              headers: { 'Content-Type': 'application/json' },
+            });
+            
+            response = await retryClient.post(url, {
+              email: trimmedEmail,
+              password: trimmedPassword,
+            });
+            break;
+          } else {
+            // Not a timeout/network error or max retries reached
+            throw error;
+          }
+        }
+      }
 
       console.log('Login response:', response.status);
       console.log('Response data keys:', Object.keys(response.data));
