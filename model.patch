@@ -11,19 +11,36 @@ diff --git a/mi-mobile-complete-export/frontend b/mi-mobile-complete-export/fron
 -Subproject commit a147ac165f527634cb6dadfd4f12bdac94312b97
 +Subproject commit a147ac165f527634cb6dadfd4f12bdac94312b97-dirty
 diff --git a/model.patch b/model.patch
-index 059fa8a..e69de29 100644
+index e3684fb..e69de29 100644
 --- a/model.patch
 +++ b/model.patch
-@@ -1,12 +0,0 @@
+@@ -1,29 +0,0 @@
 -diff --git a/frontend b/frontend
 ---- a/frontend
 -+++ b/frontend
 -@@ -1 +1 @@
---Subproject commit a147ac165f527634cb6dadfd4f12bdac94312b97
--+Subproject commit a147ac165f527634cb6dadfd4f12bdac94312b97-dirty
+--Subproject commit d2d01abe65ff86aca30c5410ca4afc144e30c342
+-+Subproject commit d2d01abe65ff86aca30c5410ca4afc144e30c342-dirty
 -diff --git a/mi-mobile-complete-export/frontend b/mi-mobile-complete-export/frontend
 ---- a/mi-mobile-complete-export/frontend
 -+++ b/mi-mobile-complete-export/frontend
 -@@ -1 +1 @@
 --Subproject commit a147ac165f527634cb6dadfd4f12bdac94312b97
 -+Subproject commit a147ac165f527634cb6dadfd4f12bdac94312b97-dirty
+-diff --git a/model.patch b/model.patch
+-index 059fa8a..e69de29 100644
+---- a/model.patch
+-+++ b/model.patch
+-@@ -1,12 +0,0 @@
+--diff --git a/frontend b/frontend
+----- a/frontend
+--+++ b/frontend
+--@@ -1 +1 @@
+---Subproject commit a147ac165f527634cb6dadfd4f12bdac94312b97
+--+Subproject commit a147ac165f527634cb6dadfd4f12bdac94312b97-dirty
+--diff --git a/mi-mobile-complete-export/frontend b/mi-mobile-complete-export/frontend
+----- a/mi-mobile-complete-export/frontend
+--+++ b/mi-mobile-complete-export/frontend
+--@@ -1 +1 @@
+---Subproject commit a147ac165f527634cb6dadfd4f12bdac94312b97
+--+Subproject commit a147ac165f527634cb6dadfd4f12bdac94312b97-dirty
