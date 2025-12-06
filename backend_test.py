@@ -20,8 +20,8 @@ ADMIN_CREDENTIALS = {
 }
 
 USER_CREDENTIALS = {
-    "email": "collenbelly7@icloud.com",
-    "password": "xNNfFr5SiYHb"  # From test history - temporary password
+    "email": "testuser@signalmaster.com",
+    "password": "Test@123"  # From database initialization
 }
 
 class TestResults:
