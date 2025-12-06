@@ -1675,6 +1675,61 @@ async def update_mentor_background(
     else:
         raise HTTPException(status_code=404, detail="Mentor not found")
 
+@api_router.put("/mentor/branding")
+async def update_mentor_branding_all(
+    company_name: Optional[str] = Body(None),
+    system_name: Optional[str] = Body(None),
+    logo_url: Optional[str] = Body(None),
+    background_image: Optional[str] = Body(None),
+    primary_color: Optional[str] = Body(None),
+    rgb_overlay: Optional[dict] = Body(None),
+    current_mentor = Depends(get_current_mentor)
+):
+    """Update all mentor branding settings at once"""
+    mentor_id = current_mentor.get("_id")
+    
+    update_fields = {}
+    branding_fields = {}
+    
+    # Top-level fields
+    if company_name is not None:
+        update_fields["company_name"] = company_name
+    
+    # Branding nested fields
+    if system_name is not None:
+        branding_fields["system_name"] = system_name
+    if logo_url is not None:
+        branding_fields["logo_url"] = logo_url
+    if background_image is not None:
+        branding_fields["background_image"] = background_image
+    if primary_color is not None:
+        branding_fields["primary_color"] = primary_color
+    if rgb_overlay is not None:
+        branding_fields["rgb_overlay"] = rgb_overlay
+    
+    # Update branding object
+    if branding_fields:
+        for key, value in branding_fields.items():
+            update_fields[f"branding.{key}"] = value
+    
+    if not update_fields:
+        raise HTTPException(status_code=400, detail="No branding settings provided")
+    
+    update_fields["updated_at"] = datetime.utcnow()
+    
+    result = await db.mentors.update_one(
+        {"_id": ObjectId(mentor_id)},
+        {"$set": update_fields}
+    )
+    
+    if result.matched_count > 0:
+        return {
+            "message": "Branding updated successfully",
+            "updated_fields": list(update_fields.keys())
+        }
+    else:
+        raise HTTPException(status_code=404, detail="Mentor not found")
+
 # ==================== ADMIN ROUTES ====================
 
 @api_router.get("/admin/users")
