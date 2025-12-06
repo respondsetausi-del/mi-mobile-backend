@@ -20,8 +20,8 @@ ADMIN_CREDENTIALS = {
 }
 
 USER_CREDENTIALS = {
-    "email": "testuser@signalmaster.com",
-    "password": "Test@123"  # From database initialization
+    "email": "testuser2@signalmaster.com", 
+    "password": "Test@123"  # Unpaid user from database initialization
 }
 
 class TestResults:
