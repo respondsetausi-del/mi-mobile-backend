@@ -1,16 +1,17 @@
 #!/usr/bin/env python3
 """
-Comprehensive Backend Authentication Testing
-Testing all login endpoints and investigating authentication failures
+Backend API Testing Suite for MI Mobile Indicator
+Focus: Stripe Payment Gateway Fix Verification
 """
 
 import requests
 import json
 import sys
+import os
 from datetime import datetime
 
-# Backend URL from frontend .env
-BASE_URL = "https://mi-indicator-live.preview.emergentagent.com/api"
+# Configuration
+BACKEND_URL = "https://mi-mobile-forex.preview.emergentagent.com/api"
 
 class AuthenticationTester:
     def __init__(self):
