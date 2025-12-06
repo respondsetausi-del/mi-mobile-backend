@@ -98,7 +98,8 @@ def create_test_user(admin_token):
     if not response or response.status_code != 200:
         return None
     
-    licenses = response.json().get("licenses", [])
+    data = response.json()
+    licenses = data.get("licenses", []) if isinstance(data, dict) else data
     unused_licenses = [l for l in licenses if not l.get("used")]
     
     if not unused_licenses:
