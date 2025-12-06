@@ -1001,3 +1001,32 @@ agent_communication:
     message: "✅ KEEP-ALIVE SERVICE SUCCESSFULLY IMPLEMENTED: Completed implementation of Option 1 (External Keep-Alive Service) as requested by user to prevent backend from sleeping. IMPLEMENTATION DETAILS: 1) Added lightweight /api/health endpoint to backend/server.py that returns server status, timestamp, and database connection status (no authentication required, minimal overhead), 2) Created /app/keep_alive.sh bash script that pings /api/health every 5 minutes (300 seconds) using curl, 3) Configured service to run under supervisor (/etc/supervisor/conf.d/keep-alive.conf) with autostart=true and autorestart=true for persistent operation, 4) Service is now running (PID 738) and successfully pinging backend every 5 minutes with logs in /app/keep_alive.log, 5) Created comprehensive documentation in /app/KEEP_ALIVE_SERVICE.md. VERIFICATION COMPLETED: Health endpoint responding correctly (HTTP 200), keep-alive service pinging successfully, backend logs showing regular health checks, admin login tested and working (admin@signalmaster.com/Admin@123), all services running under supervisor. This solution ensures the preview backend remains active 24/7, resolving the login failure issue in the standalone APK. Ready for backend testing to verify health endpoint and confirm authentication system still works correctly."
   - agent: "testing"
     message: "✅ KEEP-ALIVE SERVICE TESTING COMPLETE: Comprehensive testing performed on all keep-alive functionality as requested in review. 7/9 tests passed (77.8% success rate). ALL SUCCESS CRITERIA VERIFIED: ✅ Health endpoint (GET /api/health) returns all required fields (status, message, timestamp, database) with correct JSON structure, ✅ Admin authentication working (admin@signalmaster.com/Admin@123 login successful), ✅ User authentication working (found paid user, login successful with payment_status='paid'), ✅ Keep-alive service running (keep_alive.sh process found in supervisor with RUNNING status), ✅ Backend logs show health checks (6 health check entries with 200 OK responses), ✅ Core endpoints working (quotes returns 24 market quotes, protected endpoints accessible). MINOR ISSUES: Health endpoint response time 105ms via external URL (exceeds 100ms requirement due to network latency, but internal localhost responds in 15ms), Keep-alive logs show successful pings but format differs from expected. CRITICAL SUCCESS: Keep-alive service is fully operational and preventing backend sleep, authentication system unaffected by keep-alive implementation, APK login failure issue resolved. The keep-alive service ensures 24/7 backend availability as requested."
+
+  - task: "Stripe Payment Gateway - base_url AttributeError Fix"
+    implemented: true
+    working: "NA"
+    file: "backend/server.py"
+    stuck_count: 0
+    priority: "critical"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Fixed Stripe payment gateway error 'CreateCheckoutRequest object has no attribute base_url'. Issue was on line 3173 where code tried to access request.base_url but the CreateCheckoutRequest Pydantic model only defines origin_url field (line 3135). Changed line 3173 from 'str(request.base_url)' to 'str(request.origin_url)' to match the model definition. This fixes the AttributeError preventing payment checkout creation. Backend restarted successfully."
+
+  - task: "Admin License Auto-Copy Feature"
+    implemented: true
+    working: "NA"
+    file: "frontend/app/admin.tsx"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented auto-copy functionality for admin license key generation. Updated generateLicense() function (line 284) to automatically copy newly generated license keys to clipboard using Clipboard.setStringAsync(). When admin generates a license key, it is now automatically copied to clipboard in addition to the manual copy button that was previously implemented. Updated success alert message to indicate 'Saved to database and copied to clipboard!' to inform admin of the auto-copy action. Expo-clipboard already imported at line 22. Frontend restarted successfully."
+
+agent_communication:
+  - agent: "main"
+    message: "Fixed two critical issues reported by user: 1) Stripe Payment Gateway - Changed request.base_url to request.origin_url in /api/payment/create-checkout endpoint (line 3173) to fix AttributeError. The Pydantic model only has origin_url field, not base_url. 2) Admin License Auto-Copy - Added Clipboard.setStringAsync() to generateLicense() function to automatically copy newly generated license keys to clipboard when generated. Both backend and frontend services restarted successfully. Ready for backend testing."
+
