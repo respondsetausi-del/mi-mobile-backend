@@ -18,9 +18,9 @@ import ConfirmModal from '../components/ConfirmModal';
 
 const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || '';
 
-// Axios instance with timeout for faster failures
+// Axios instance with optimized timeout for fast login
 const apiClient = axios.create({
-  timeout: 15000, // 15 seconds timeout
+  timeout: 10000, // 10 seconds timeout - faster response
   headers: {
     'Content-Type': 'application/json',
   },
@@ -73,10 +73,10 @@ export default function LoginScreen() {
       const url = `${API_URL}${endpoint}`;
       console.log('Login URL:', url);
 
-      // Retry logic for backend wake-up (Render free tier)
+      // Fast retry logic for backend wake-up (Render free tier)
       let response;
       let retryCount = 0;
-      const maxRetries = 2;
+      const maxRetries = 1;
       
       while (retryCount <= maxRetries) {
         try {
@@ -91,13 +91,12 @@ export default function LoginScreen() {
           console.log(`Login attempt ${retryCount} failed`);
           
           if (retryCount <= maxRetries && (error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || error.message?.includes('timeout'))) {
-            // Backend might be waking up, retry with longer timeout
-            console.log('Backend may be sleeping, retrying with extended timeout...');
-            await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds before retry
+            // Backend might be waking up, retry immediately with longer timeout
+            console.log('Backend waking up, retrying...');
             
-            // Create new client with longer timeout for retry
+            // Create new client with extended timeout for wake-up
             const retryClient = axios.create({
-              timeout: 60000, // 60 seconds for wake-up
+              timeout: 45000, // 45 seconds for wake-up - faster than before
               headers: { 'Content-Type': 'application/json' },
             });
             
