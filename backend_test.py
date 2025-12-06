@@ -57,7 +57,7 @@ class TestResults:
         print(f"Success Rate: {(self.passed_tests/self.total_tests*100):.1f}%")
         print(f"{'='*60}")
 
-def make_request(method, endpoint, headers=None, json_data=None, timeout=30):
+def make_request(method, endpoint, headers=None, json_data=None, timeout=10):
     """Make HTTP request with error handling"""
     try:
         url = f"{BACKEND_URL}{endpoint}"
