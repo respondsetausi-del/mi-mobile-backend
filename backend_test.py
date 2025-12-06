@@ -11,7 +11,7 @@ import os
 from datetime import datetime
 
 # Configuration
-BACKEND_URL = "https://mi-mobile-forex.preview.emergentagent.com/api"
+BACKEND_URL = "http://localhost:8001/api"
 
 # Test credentials from test_result.md
 ADMIN_CREDENTIALS = {
