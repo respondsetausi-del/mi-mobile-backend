@@ -972,13 +972,6 @@ export default function MentorDashboard() {
             <Ionicons name="add-circle" size={20} color="#fff" />
             <Text style={styles.actionButtonText}>Generate Keys</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.actionButton, { backgroundColor: '#9C27B0' }]} 
-            onPress={() => setEditingBackground(true)}
-          >
-            <Ionicons name="brush" size={20} color="#fff" />
-            <Text style={styles.actionButtonText}>Branding</Text>
-          </TouchableOpacity>
         </View>
 
         {/* Users List */}
@@ -1447,7 +1440,7 @@ export default function MentorDashboard() {
 
               {/* Add Indicator Form */}
               {showAddIndicator && (
-                <View style={[styles.formContainer, { marginTop: 16, padding: 16, backgroundColor: '#0a0e27', borderRadius: 8, borderWidth: 1, borderColor: '#00D9FF' }]}>
+                <View style={[styles.formContainer, { marginTop: 16, padding: 16, backgroundColor: '#000', borderRadius: 8, borderWidth: 1, borderColor: '#00D9FF' }]}>
                   <Text style={[styles.sectionTitle, { fontSize: 16, marginBottom: 12 }]}>📊 Configure Trading Indicator</Text>
                   
                   {/* Basic Info */}
@@ -2049,18 +2042,7 @@ export default function MentorDashboard() {
 
       </ScrollView>
 
-      {/* Branding Modal */}
-      {editingBackground && (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Customize Branding</Text>
-              <TouchableOpacity onPress={() => setEditingBackground(false)}>
-                <Ionicons name="close-circle" size={32} color="#ff4444" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView style={styles.modalScroll}>
+      {/* Branding Modal - REMOVED: Now using dedicated branding page via navigation */}
               {/* System Name */}
               <View style={styles.brandingSection}>
                 <Text style={styles.brandingLabel}>System Name</Text>
@@ -2592,28 +2574,28 @@ const styles = StyleSheet.create({
   // Manual Signal styles
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   toggleButton: { padding: 8 },
-  formContainer: { backgroundColor: '#1a1f3a', padding: 16, borderRadius: 12, marginTop: 8 },
+  formContainer: { backgroundColor: '#000', padding: 16, borderRadius: 12, marginTop: 8 },
   inputRow: { marginBottom: 16 },
   inputLabel: { color: '#888', fontSize: 14, marginBottom: 8, fontWeight: '600' },
-  textInput: { backgroundColor: '#0a0e27', borderWidth: 1, borderColor: '#333', borderRadius: 8, padding: 12, color: '#fff', fontSize: 14 },
+  textInput: { backgroundColor: '#000', borderWidth: 1, borderColor: '#333', borderRadius: 8, padding: 12, color: '#fff', fontSize: 14 },
   textArea: { minHeight: 80, textAlignVertical: 'top' },
-  segmentedControl: { flexDirection: 'row', backgroundColor: '#0a0e27', borderRadius: 8, padding: 4 },
+  segmentedControl: { flexDirection: 'row', backgroundColor: '#000', borderRadius: 8, padding: 4 },
   segmentButton: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 6 },
   segmentButtonActive: { backgroundColor: '#00D9FF' },
   segmentText: { color: '#888', fontSize: 14, fontWeight: 'bold' },
-  segmentTextActive: { color: '#0a0e27' },
+  segmentTextActive: { color: '#000' },
   timeframeButtons: { flexDirection: 'row', gap: 8 },
-  timeframeBtn: { flex: 1, paddingVertical: 10, backgroundColor: '#0a0e27', borderWidth: 1, borderColor: '#333', borderRadius: 8, alignItems: 'center' },
+  timeframeBtn: { flex: 1, paddingVertical: 10, backgroundColor: '#000', borderWidth: 1, borderColor: '#333', borderRadius: 8, alignItems: 'center' },
   timeframeBtnActive: { backgroundColor: '#00D9FF', borderColor: '#00D9FF' },
   timeframeText: { color: '#888', fontSize: 14, fontWeight: 'bold' },
-  timeframeTextActive: { color: '#0a0e27' },
+  timeframeTextActive: { color: '#000' },
   sendSignalBtn: { backgroundColor: '#00D9FF', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 8, gap: 8, marginTop: 8 },
-  sendSignalBtnText: { color: '#0a0e27', fontSize: 16, fontWeight: 'bold' },
+  sendSignalBtnText: { color: '#000', fontSize: 16, fontWeight: 'bold' },
   // Broker styles removed
   buttonDisabled: { opacity: 0.5 },
   // Manual News styles
   impactButtons: { flexDirection: 'row', gap: 8 },
-  impactBtn: { flex: 1, paddingVertical: 12, backgroundColor: '#0a0e27', borderWidth: 1, borderColor: '#333', borderRadius: 8, alignItems: 'center' },
+  impactBtn: { flex: 1, paddingVertical: 12, backgroundColor: '#000', borderWidth: 1, borderColor: '#333', borderRadius: 8, alignItems: 'center' },
   impactBtnActive: { borderColor: '#00D9FF' },
   impactBtnHigh: { backgroundColor: '#FF4444', borderColor: '#FF4444' },
   impactBtnMedium: { backgroundColor: '#FFA500', borderColor: '#FFA500' },
@@ -2642,7 +2624,7 @@ const styles = StyleSheet.create({
   signalButtonContainer: { marginTop: 8 },
   signalLabel: { color: '#888', fontSize: 13, marginBottom: 8 },
   signalButtons: { flexDirection: 'row', gap: 8 },
-  signalButton: { flex: 1, paddingVertical: 12, backgroundColor: '#0a0e27', borderWidth: 1, borderColor: '#333', borderRadius: 8, alignItems: 'center' },
+  signalButton: { flex: 1, paddingVertical: 12, backgroundColor: '#000', borderWidth: 1, borderColor: '#333', borderRadius: 8, alignItems: 'center' },
   signalButtonBuy: { backgroundColor: '#4CAF50', borderColor: '#4CAF50' },
   signalButtonSell: { backgroundColor: '#FF4444', borderColor: '#FF4444' },
   signalButtonNone: { backgroundColor: '#666', borderColor: '#666' },
@@ -2707,20 +2689,20 @@ const styles = StyleSheet.create({
   runningIndicator: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#fff', marginLeft: 4 },
   // Indicator configuration styles
   symbolButtons: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  symbolBtn: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#0a0e27', borderWidth: 1, borderColor: '#333', borderRadius: 6 },
+  symbolBtn: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#000', borderWidth: 1, borderColor: '#333', borderRadius: 6 },
   symbolBtnActive: { backgroundColor: '#00D9FF', borderColor: '#00D9FF' },
   symbolText: { color: '#888', fontSize: 12, fontWeight: 'bold' },
-  symbolTextActive: { color: '#0a0e27' },
+  symbolTextActive: { color: '#000' },
   timeframeButtons: { flexDirection: 'row', gap: 8 },
-  timeframeBtn: { flex: 1, paddingVertical: 10, backgroundColor: '#0a0e27', borderWidth: 1, borderColor: '#333', borderRadius: 6, alignItems: 'center' },
+  timeframeBtn: { flex: 1, paddingVertical: 10, backgroundColor: '#000', borderWidth: 1, borderColor: '#333', borderRadius: 6, alignItems: 'center' },
   timeframeBtnActive: { backgroundColor: '#00D9FF', borderColor: '#00D9FF' },
   timeframeText: { color: '#888', fontSize: 12, fontWeight: 'bold' },
-  timeframeTextActive: { color: '#0a0e27' },
+  timeframeTextActive: { color: '#000' },
   indicatorTypeGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  indicatorTypeBtn: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#0a0e27', borderWidth: 1, borderColor: '#333', borderRadius: 6 },
+  indicatorTypeBtn: { paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#000', borderWidth: 1, borderColor: '#333', borderRadius: 6 },
   indicatorTypeBtnActive: { backgroundColor: '#00D9FF', borderColor: '#00D9FF' },
   indicatorTypeText: { color: '#888', fontSize: 13, fontWeight: 'bold' },
-  indicatorTypeTextActive: { color: '#0a0e27' },
+  indicatorTypeTextActive: { color: '#000' },
   configSection: { backgroundColor: '#0f1425', padding: 12, borderRadius: 6, borderWidth: 1, borderColor: '#00D9FF' },
   configTitle: { color: '#00D9FF', fontSize: 14, fontWeight: 'bold', marginBottom: 8 },
 
@@ -2730,7 +2712,7 @@ const styles = StyleSheet.create({
   sectionSubtitle: { color: '#888', fontSize: 13, marginTop: 4, marginBottom: 12, fontStyle: 'italic' },
   emptyNewsContainer: { alignItems: 'center', padding: 40, marginTop: 16 },
   emptyNewsText: { color: '#666', fontSize: 14, marginTop: 12 },
-  newsEventCard: { backgroundColor: '#1a1f3a', padding: 16, borderRadius: 12, marginTop: 12, borderWidth: 1, borderColor: 'rgba(0, 217, 255, 0.2)' },
+  newsEventCard: { backgroundColor: '#000', padding: 16, borderRadius: 12, marginTop: 12, borderWidth: 1, borderColor: 'rgba(0, 217, 255, 0.2)' },
   newsEventHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   newsTimeInfo: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   newsEventTime: { color: '#00D9FF', fontSize: 13, fontWeight: '600' },
@@ -2853,7 +2835,7 @@ const styles = StyleSheet.create({
   },
   bottomNav: {
     flexDirection: 'row',
-    backgroundColor: '#0a0e27',
+    backgroundColor: '#000',
     borderTopWidth: 1,
     borderTopColor: '#333',
     paddingVertical: 8,

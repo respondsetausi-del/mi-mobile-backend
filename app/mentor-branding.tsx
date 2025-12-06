@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#111',
   },
   logoPlaceholderText: {
     color: '#666',
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   input: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#111',
     borderWidth: 1,
     borderColor: '#333',
     borderRadius: 8,
@@ -390,7 +390,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#111',
     padding: 12,
     borderRadius: 8,
     marginBottom: 8,
@@ -418,7 +418,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   brokerInput: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#111',
     borderWidth: 1,
     borderColor: '#333',
     borderRadius: 8,
