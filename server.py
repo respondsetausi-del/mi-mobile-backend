@@ -1765,7 +1765,8 @@ async def generate_licenses(count: int, current_admin = Depends(get_current_admi
             }
             for key in keys
         ]
-        await db.license_keys.insert_many(licenses)
+        # FIXED: Changed from db.license_keys to db.licenses to match the collection used everywhere else
+        await db.licenses.insert_many(licenses)
         return {"message": f"Generated {count} license keys", "keys": keys}
     
     except Exception as e:
