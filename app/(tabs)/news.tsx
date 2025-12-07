@@ -44,7 +44,20 @@ export default function NewsScreen() {
       if (response.ok) {
         const data = await response.json();
         console.log('News data:', data);
-        setNews(data.news || []);
+        
+        // Filter to show only UPCOMING events (future dates)
+        const now = new Date();
+        const upcomingNews = (data.news || []).filter((item: NewsItem) => {
+          try {
+            const eventDate = new Date(item.event_time);
+            return eventDate > now; // Only show future events
+          } catch (e) {
+            return false; // Skip invalid dates
+          }
+        });
+        
+        console.log('Filtered upcoming news:', upcomingNews.length);
+        setNews(upcomingNews);
       }
     } catch (error) {
       console.error('Error fetching news:', error);
