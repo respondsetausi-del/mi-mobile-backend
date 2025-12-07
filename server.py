@@ -3170,7 +3170,7 @@ async def create_payment_checkout(
         
         # Initialize Stripe
         stripe.api_key = stripe_api_key
-        host_url = str(request.base_url).rstrip('/')
+        host_url = str(request.origin_url).rstrip('/')
         
         # Build success and cancel URLs
         success_url = f"{host_url}/waiting-approval?session_id={{CHECKOUT_SESSION_ID}}"
