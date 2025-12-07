@@ -20,53 +20,41 @@ import Constants from 'expo-constants';
 
 const API_URL = Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || '';
 
-export default function MentorBranding() {
+export default function CustomizeBranding() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [mentorData, setMentorData] = useState(null);
   
-  // Branding states
-  const [companyName, setCompanyName] = useState('');
-  const [systemName, setSystemName] = useState('');
-  const [logoUrl, setLogoUrl] = useState('');
-  const [backgroundImage, setBackgroundImage] = useState('');
-  const [primaryColor, setPrimaryColor] = useState('#00D9FF');
-  const [colorPreview, setColorPreview] = useState('#00D9FF');
-  
-  // RGB Color overlay for background
-  const [rgbColor, setRgbColor] = useState({ r: 10, g: 14, b: 39 });
-  
-  // Broker states
-  const [brokers, setBrokers] = useState([]);
-  const [newBroker, setNewBroker] = useState({ name: '', url: '' });
+  // States
+  const [systemNameInput, setSystemNameInput] = useState('');
+  const [selectedBgImage, setSelectedBgImage] = useState(null);
+  const [selectedBgColor, setSelectedBgColor] = useState({ r: 0, g: 217, b: 255 });
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   useEffect(() => {
-    loadBranding();
+    loadBrandingData();
   }, []);
 
-  const loadBranding = async () => {
+  const loadBrandingData = async () => {
     try {
       const token = await AsyncStorage.getItem('mentorToken');
-      const response = await fetch(`${API_URL}/api/mentor/profile`, {
+      const response = await fetch(`${API_URL}/api/mentor/branding`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
       if (response.ok) {
         const data = await response.json();
-        setMentorData(data);
-        setCompanyName(data.company_name || '');
-        setSystemName(data.branding?.system_name || '');
-        setLogoUrl(data.branding?.logo_url || '');
-        setBackgroundImage(data.branding?.background_image || '');
-        setPrimaryColor(data.branding?.primary_color || '#00D9FF');
-        setColorPreview(data.branding?.primary_color || '#00D9FF');
-        
-        // Load RGB color if exists
-        if (data.branding?.rgb_overlay) {
-          setRgbColor(data.branding.rgb_overlay);
+        setSystemNameInput(data.system_name || '');
+        setSelectedBgImage(data.background_image || null);
+        if (data.background_color) {
+          const match = data.background_color.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+          if (match) {
+            setSelectedBgColor({
+              r: parseInt(match[1]),
+              g: parseInt(match[2]),
+              b: parseInt(match[3]),
+            });
+          }
         }
-        
-        setBrokers(data.brokers || []);
       }
     } catch (error) {
       console.error('Error loading branding:', error);
@@ -75,20 +63,29 @@ export default function MentorBranding() {
     }
   };
 
-  const pickLogo = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
+  const updateSystemName = async () => {
+    try {
+      const token = await AsyncStorage.getItem('mentorToken');
+      const response = await fetch(`${API_URL}/api/mentor/branding/system-name`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ system_name: systemNameInput }),
+      });
 
-    if (!result.canceled) {
-      setLogoUrl(result.assets[0].uri);
+      if (response.ok) {
+        Alert.alert('Success', 'System name updated successfully');
+      } else {
+        Alert.alert('Error', 'Failed to update system name');
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update system name');
     }
   };
 
-  const pickBackgroundImage = async () => {
+  const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -97,86 +94,42 @@ export default function MentorBranding() {
     });
 
     if (!result.canceled) {
-      setBackgroundImage(result.assets[0].uri);
+      setSelectedBgImage(result.assets[0].uri);
     }
   };
 
-  const saveBranding = async () => {
-    setSaving(true);
+  const saveBackground = async () => {
+    setUploadingImage(true);
     try {
       const token = await AsyncStorage.getItem('mentorToken');
-      const response = await fetch(`${API_URL}/api/mentor/branding`, {
+      
+      const payload = {
+        background_color: `rgb(${selectedBgColor.r}, ${selectedBgColor.g}, ${selectedBgColor.b})`,
+      };
+
+      if (selectedBgImage) {
+        payload.background_image = selectedBgImage;
+      }
+
+      const response = await fetch(`${API_URL}/api/mentor/branding/background`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          company_name: companyName,
-          system_name: systemName,
-          logo_url: logoUrl,
-          background_image: backgroundImage,
-          primary_color: primaryColor,
-          rgb_overlay: rgbColor,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (response.ok) {
-        Alert.alert('Success', 'Branding saved successfully');
-        loadBranding();
+        Alert.alert('Success', 'Background settings saved successfully');
+        router.back();
       } else {
-        Alert.alert('Error', 'Failed to save branding');
+        Alert.alert('Error', 'Failed to save background settings');
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to save branding');
+      Alert.alert('Error', 'Failed to save background settings');
     } finally {
-      setSaving(false);
-    }
-  };
-
-  const addBroker = async () => {
-    if (!newBroker.name || !newBroker.url) {
-      Alert.alert('Error', 'Please fill in both broker name and URL');
-      return;
-    }
-
-    try {
-      const token = await AsyncStorage.getItem('mentorToken');
-      const response = await fetch(`${API_URL}/api/mentor/brokers`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(newBroker),
-      });
-
-      if (response.ok) {
-        Alert.alert('Success', 'Broker added successfully');
-        setNewBroker({ name: '', url: '' });
-        loadBranding();
-      } else {
-        Alert.alert('Error', 'Failed to add broker');
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to add broker');
-    }
-  };
-
-  const deleteBroker = async (brokerId) => {
-    try {
-      const token = await AsyncStorage.getItem('mentorToken');
-      const response = await fetch(`${API_URL}/api/mentor/brokers/${brokerId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` },
-      });
-
-      if (response.ok) {
-        Alert.alert('Success', 'Broker removed');
-        loadBranding();
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to remove broker');
+      setUploadingImage(false);
     }
   };
 
@@ -194,228 +147,114 @@ export default function MentorBranding() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Branding</Text>
+        <Text style={styles.headerTitle}>Customize Branding</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView style={styles.content}>
-        {/* Logo Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Company Logo</Text>
-          <TouchableOpacity style={styles.logoContainer} onPress={pickLogo}>
-            {logoUrl ? (
-              <Image source={{ uri: logoUrl }} style={styles.logoImage} />
-            ) : (
-              <View style={styles.logoPlaceholder}>
-                <Ionicons name="camera" size={40} color="#666" />
-                <Text style={styles.logoPlaceholderText}>Tap to upload logo</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* Company Name */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Company Name</Text>
-          <TextInput
-            style={styles.input}
-            value={companyName}
-            onChangeText={setCompanyName}
-            placeholder="Enter company name"
-            placeholderTextColor="#666"
-          />
-        </View>
-
         {/* System Name */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>System Name</Text>
           <TextInput
             style={styles.input}
-            value={systemName}
-            onChangeText={setSystemName}
+            value={systemNameInput}
+            onChangeText={setSystemNameInput}
             placeholder="Enter system name"
             placeholderTextColor="#666"
           />
-          <Text style={styles.helperText}>Displayed to your users in the app</Text>
+          <TouchableOpacity style={styles.saveSmallBtn} onPress={updateSystemName}>
+            <Text style={styles.btnText}>Save Name</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Background Image */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Background Image</Text>
-          <TouchableOpacity style={styles.uploadButton} onPress={pickBackgroundImage}>
+          <TouchableOpacity style={styles.uploadBtn} onPress={pickImage}>
             <Ionicons name="cloud-upload" size={24} color="#00D9FF" />
-            <Text style={styles.uploadButtonText}>Choose Background Image</Text>
+            <Text style={styles.uploadText}>Choose Image</Text>
           </TouchableOpacity>
-          
-          {backgroundImage ? (
-            <View style={styles.backgroundPreview}>
-              <Image source={{ uri: backgroundImage }} style={styles.backgroundImage} />
+
+          {selectedBgImage && (
+            <View style={styles.imagePreview}>
+              <Image source={{ uri: selectedBgImage }} style={styles.previewImg} />
               <TouchableOpacity 
-                style={styles.removeImageButton}
-                onPress={() => setBackgroundImage('')}
+                style={styles.removeImageBtn}
+                onPress={() => setSelectedBgImage(null)}
               >
-                <Ionicons name="close-circle" size={28} color="#ff4444" />
+                <Ionicons name="close-circle" size={24} color="#ff4444" />
               </TouchableOpacity>
             </View>
-          ) : null}
+          )}
         </View>
 
-        {/* RGB Color Overlay */}
+        {/* Color Sliders */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Color Overlay (RGB)</Text>
-          <Text style={styles.helperText}>Background tint color for better text visibility</Text>
           
-          <View style={styles.sliderSection}>
-            <View style={styles.sliderRow}>
-              <Text style={styles.sliderLabel}>Red: {rgbColor.r}</Text>
-              <Slider
-                style={styles.rgbSlider}
-                minimumValue={0}
-                maximumValue={255}
-                step={1}
-                value={rgbColor.r}
-                onValueChange={(v) => setRgbColor({ ...rgbColor, r: Math.round(v) })}
-                minimumTrackTintColor="#ff0000"
-                maximumTrackTintColor="#333"
-                thumbTintColor="#ff0000"
-              />
-            </View>
-            
-            <View style={styles.sliderRow}>
-              <Text style={styles.sliderLabel}>Green: {rgbColor.g}</Text>
-              <Slider
-                style={styles.rgbSlider}
-                minimumValue={0}
-                maximumValue={255}
-                step={1}
-                value={rgbColor.g}
-                onValueChange={(v) => setRgbColor({ ...rgbColor, g: Math.round(v) })}
-                minimumTrackTintColor="#00ff00"
-                maximumTrackTintColor="#333"
-                thumbTintColor="#00ff00"
-              />
-            </View>
-            
-            <View style={styles.sliderRow}>
-              <Text style={styles.sliderLabel}>Blue: {rgbColor.b}</Text>
-              <Slider
-                style={styles.rgbSlider}
-                minimumValue={0}
-                maximumValue={255}
-                step={1}
-                value={rgbColor.b}
-                onValueChange={(v) => setRgbColor({ ...rgbColor, b: Math.round(v) })}
-                minimumTrackTintColor="#0000ff"
-                maximumTrackTintColor="#333"
-                thumbTintColor="#0000ff"
-              />
-            </View>
-            
-            <View style={[
-              styles.rgbPreview,
-              { backgroundColor: `rgb(${rgbColor.r}, ${rgbColor.g}, ${rgbColor.b})` }
-            ]}>
-              <Text style={styles.rgbPreviewText}>Color Preview</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Primary Color */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Primary Color</Text>
-          <View style={styles.colorSection}>
-            <View style={styles.colorPreviewContainer}>
-              <View style={[styles.colorPreview, { backgroundColor: colorPreview }]} />
-              <Text style={styles.colorValue}>{colorPreview}</Text>
-            </View>
-            <Slider
-              style={styles.slider}
-              minimumValue={0}
-              maximumValue={360}
-              value={parseInt(colorPreview.substring(1), 16) % 360}
-              onValueChange={(value) => {
-                const hue = Math.round(value);
-                const color = hslToHex(hue, 100, 50);
-                setColorPreview(color);
-              }}
-              onSlidingComplete={(value) => {
-                setPrimaryColor(colorPreview);
-              }}
-              minimumTrackTintColor="#00D9FF"
-              maximumTrackTintColor="#666"
-              thumbTintColor="#00D9FF"
-            />
-          </View>
-        </View>
-
-        {/* Brokers Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Broker Affiliates</Text>
+          <Text style={styles.colorLabel}>Red: {selectedBgColor.r}</Text>
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={255}
+            step={1}
+            value={selectedBgColor.r}
+            onValueChange={(v) => setSelectedBgColor({ ...selectedBgColor, r: Math.round(v) })}
+            minimumTrackTintColor="#ff0000"
+            maximumTrackTintColor="#333"
+          />
           
-          {brokers.map((broker, index) => (
-            <View key={index} style={styles.brokerItem}>
-              <View style={styles.brokerInfo}>
-                <Ionicons name="briefcase" size={20} color="#00D9FF" />
-                <View style={styles.brokerText}>
-                  <Text style={styles.brokerName}>{broker.name}</Text>
-                  <Text style={styles.brokerUrl}>{broker.url}</Text>
-                </View>
-              </View>
-              <TouchableOpacity onPress={() => deleteBroker(broker._id)}>
-                <Ionicons name="trash-outline" size={20} color="#ff4444" />
-              </TouchableOpacity>
-            </View>
-          ))}
-
-          <View style={styles.addBrokerContainer}>
-            <TextInput
-              style={styles.brokerInput}
-              value={newBroker.name}
-              onChangeText={(text) => setNewBroker({ ...newBroker, name: text })}
-              placeholder="Broker name"
-              placeholderTextColor="#666"
-            />
-            <TextInput
-              style={styles.brokerInput}
-              value={newBroker.url}
-              onChangeText={(text) => setNewBroker({ ...newBroker, url: text })}
-              placeholder="Broker URL"
-              placeholderTextColor="#666"
-              autoCapitalize="none"
-            />
-            <TouchableOpacity style={styles.addBrokerButton} onPress={addBroker}>
-              <Ionicons name="add" size={24} color="#000" />
-            </TouchableOpacity>
+          <Text style={styles.colorLabel}>Green: {selectedBgColor.g}</Text>
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={255}
+            step={1}
+            value={selectedBgColor.g}
+            onValueChange={(v) => setSelectedBgColor({ ...selectedBgColor, g: Math.round(v) })}
+            minimumTrackTintColor="#00ff00"
+            maximumTrackTintColor="#333"
+          />
+          
+          <Text style={styles.colorLabel}>Blue: {selectedBgColor.b}</Text>
+          <Slider
+            style={styles.slider}
+            minimumValue={0}
+            maximumValue={255}
+            step={1}
+            value={selectedBgColor.b}
+            onValueChange={(v) => setSelectedBgColor({ ...selectedBgColor, b: Math.round(v) })}
+            minimumTrackTintColor="#0000ff"
+            maximumTrackTintColor="#333"
+          />
+          
+          <View style={[
+            styles.colorPreview, 
+            { backgroundColor: `rgb(${selectedBgColor.r}, ${selectedBgColor.g}, ${selectedBgColor.b})` }
+          ]}>
+            <Text style={styles.colorPreviewText}>Preview</Text>
           </View>
         </View>
 
-        {/* Save Button */}
-        <TouchableOpacity
-          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-          onPress={saveBranding}
-          disabled={saving}
-        >
-          {saving ? (
-            <ActivityIndicator color="#000" />
-          ) : (
-            <Text style={styles.saveButtonText}>Save Branding</Text>
-          )}
-        </TouchableOpacity>
+        {/* Save/Cancel Buttons */}
+        <View style={styles.actions}>
+          <TouchableOpacity style={styles.saveBigBtn} onPress={saveBackground} disabled={uploadingImage}>
+            {uploadingImage ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.btnText}>Save All Changes</Text>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.cancelBigBtn} 
+            onPress={() => router.back()}
+          >
+            <Text style={styles.btnText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
-}
-
-// Helper function to convert HSL to Hex
-function hslToHex(h, s, l) {
-  l /= 100;
-  const a = s * Math.min(l, 1 - l) / 100;
-  const f = n => {
-    const k = (n + h / 30) % 12;
-    const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-    return Math.round(255 * color).toString(16).padStart(2, '0');
-  };
-  return `#${f(0)}${f(8)}${f(4)}`;
 }
 
 const styles = StyleSheet.create({
@@ -444,205 +283,107 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 32,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#00D9FF',
-    marginBottom: 12,
-  },
-  logoContainer: {
-    width: 150,
-    height: 150,
-    borderRadius: 75,
-    borderWidth: 2,
-    borderColor: '#00D9FF',
-    alignSelf: 'center',
-    overflow: 'hidden',
-  },
-  logoImage: {
-    width: '100%',
-    height: '100%',
-  },
-  logoPlaceholder: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#111',
-  },
-  logoPlaceholderText: {
-    color: '#666',
-    marginTop: 8,
-    fontSize: 12,
+    marginBottom: 16,
   },
   input: {
-    backgroundColor: '#111',
+    backgroundColor: '#1a1a1a',
     borderWidth: 1,
     borderColor: '#333',
     borderRadius: 8,
-    padding: 12,
+    padding: 16,
     color: '#fff',
     fontSize: 16,
+    marginBottom: 12,
   },
-  colorSection: {
-    gap: 16,
+  saveSmallBtn: {
+    backgroundColor: '#00D9FF',
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
   },
-  colorPreviewContainer: {
+  uploadBtn: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#1a1a1a',
+    borderWidth: 2,
+    borderColor: '#00D9FF',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    padding: 24,
     gap: 12,
   },
-  colorPreview: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    borderWidth: 2,
-    borderColor: '#fff',
+  uploadText: {
+    color: '#00D9FF',
+    fontSize: 16,
+    fontWeight: '600',
   },
-  colorValue: {
+  imagePreview: {
+    marginTop: 16,
+    position: 'relative',
+  },
+  previewImg: {
+    width: '100%',
+    height: 200,
+    borderRadius: 8,
+  },
+  removeImageBtn: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    borderRadius: 12,
+  },
+  colorLabel: {
     color: '#fff',
     fontSize: 16,
-    fontFamily: 'monospace',
+    marginTop: 16,
+    marginBottom: 8,
   },
   slider: {
     width: '100%',
     height: 40,
   },
-  brokerItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#111',
-    padding: 12,
+  colorPreview: {
+    height: 100,
     borderRadius: 8,
-    marginBottom: 8,
-  },
-  brokerInfo: {
-    flexDirection: 'row',
+    marginTop: 16,
+    justifyContent: 'center',
     alignItems: 'center',
-    gap: 12,
-    flex: 1,
   },
-  brokerText: {
-    flex: 1,
-  },
-  brokerName: {
+  colorPreviewText: {
     color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  brokerUrl: {
-    color: '#666',
-    fontSize: 12,
-  },
-  addBrokerContainer: {
-    gap: 8,
-    marginTop: 12,
-  },
-  brokerInput: {
-    backgroundColor: '#111',
-    borderWidth: 1,
-    borderColor: '#333',
-    borderRadius: 8,
-    padding: 12,
-    color: '#fff',
-    fontSize: 14,
-  },
-  addBrokerButton: {
-    backgroundColor: '#00D9FF',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  saveButton: {
-    backgroundColor: '#00D9FF',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginTop: 24,
-    marginBottom: 40,
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
-  },
-  saveButtonText: {
-    color: '#000',
     fontSize: 18,
-    fontWeight: 'bold',
-  },
-  helperText: {
-    color: '#888',
-    fontSize: 12,
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
-  uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#111',
-    borderWidth: 2,
-    borderColor: '#00D9FF',
-    borderStyle: 'dashed',
-    padding: 16,
-    borderRadius: 8,
-  },
-  uploadButtonText: {
-    color: '#00D9FF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  backgroundPreview: {
-    marginTop: 12,
-    borderRadius: 8,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  backgroundImage: {
-    width: '100%',
-    height: 150,
-    borderRadius: 8,
-  },
-  removeImageButton: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    borderRadius: 14,
-  },
-  sliderSection: {
-    gap: 16,
-    marginTop: 12,
-  },
-  sliderRow: {
-    gap: 8,
-  },
-  sliderLabel: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  rgbSlider: {
-    width: '100%',
-    height: 40,
-  },
-  rgbPreview: {
-    height: 60,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 12,
-    borderWidth: 2,
-    borderColor: '#333',
-  },
-  rgbPreviewText: {
-    color: '#fff',
-    fontSize: 16,
     fontWeight: 'bold',
     textShadowColor: '#000',
     textShadowOffset: { width: 1, height: 1 },
-    textShadowRadius: 3,
+    textShadowRadius: 4,
+  },
+  actions: {
+    gap: 16,
+    marginBottom: 32,
+  },
+  saveBigBtn: {
+    backgroundColor: '#00D9FF',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  cancelBigBtn: {
+    backgroundColor: '#ff4444',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  btnText: {
+    color: '#000',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

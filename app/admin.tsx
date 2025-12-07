@@ -291,8 +291,13 @@ export default function AdminDashboard() {
 
       if (response.ok) {
         const data = await response.json();
-        setLastGenerated({ ...lastGenerated, license: data.keys[0] });
-        Alert.alert('✅ Success', `License Key: ${data.keys[0]}\n\nSaved to database!`);
+        const newLicenseKey = data.keys[0];
+        setLastGenerated({ ...lastGenerated, license: newLicenseKey });
+        
+        // Auto-copy to clipboard
+        await Clipboard.setStringAsync(newLicenseKey);
+        
+        Alert.alert('✅ Success', `License Key: ${newLicenseKey}\n\nSaved to database and copied to clipboard!`);
         loadData();
       } else {
         Alert.alert('Error', 'Failed to generate License Key');
