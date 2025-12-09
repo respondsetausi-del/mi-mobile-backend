@@ -1,3 +1,16 @@
 {
+  "/_not-found": "app/_not-found.js",
+  "/admin/licenses/page": "app/admin/licenses/page.js",
+  "/admin/mentors/page": "app/admin/mentors/page.js",
+  "/admin/news/page": "app/admin/news/page.js",
+  "/admin/page": "app/admin/page.js",
+  "/admin/signals/page": "app/admin/signals/page.js",
+  "/admin/users/page": "app/admin/users/page.js",
+  "/mentor/branding/page": "app/mentor/branding/page.js",
+  "/mentor/licenses/page": "app/mentor/licenses/page.js",
+  "/mentor/news/page": "app/mentor/news/page.js",
+  "/mentor/page": "app/mentor/page.js",
+  "/mentor/signals/page": "app/mentor/signals/page.js",
+  "/mentor/users/page": "app/mentor/users/page.js",
   "/page": "app/page.js"
 }
