@@ -1,91 +1,134 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
-import './globals.css'
+import DashboardLayout from '@/components/DashboardLayout'
+import StatsCard from '@/components/StatsCard'
+import { apiGet } from '@/lib/api'
+import { Users, UserCheck, DollarSign, Key, Clock, TrendingUp } from 'lucide-react'
 
 export default function MentorDashboard() {
   const [stats, setStats] = useState<any>(null)
-  const [users, setUsers] = useState<any[]>([])
-  const router = useRouter()
+  const [recentUsers, setRecentUsers] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      router.push('/')
-      return
-    }
-
-    // Fetch mentor analytics
-    fetch('https://mi-mobile-backend-1.onrender.com/api/mentor/analytics/my-users', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    }).then(r => r.json()).then(setStats)
-
-    // Fetch mentor's users
-    fetch('https://mi-mobile-backend-1.onrender.com/api/mentor/users', {
-      headers: { 'Authorization': `Bearer ${token}` }
-    }).then(r => r.json()).then(d => setUsers(d.users || []))
+    loadData()
   }, [])
 
-  const logout = () => {
-    localStorage.clear()
-    router.push('/')
+  const loadData = async () => {
+    try {
+      const [dashboardRes, usersRes] = await Promise.all([
+        apiGet('/mentor/dashboard'),
+        apiGet('/mentor/users')
+      ])
+      setStats(dashboardRes)
+      setRecentUsers((usersRes.users || []).slice(0, 5))
+    } catch (err) {
+      console.error('Failed to load data:', err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
-    <div className="min-h-screen bg-black text-white p-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-3xl font-bold">Mentor Dashboard</h1>
-          <button onClick={logout} className="bg-red-500 px-4 py-2 rounded">Logout</button>
+    <DashboardLayout role="mentor">
+      <div className="space-y-8">
+        {/* Header */}
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-gray-500 mt-1">Welcome back! Here's your overview.</p>
         </div>
 
-        {stats && (
-          <div className="grid grid-cols-3 gap-4 mb-8">
-            <div className="bg-gray-900 p-6 rounded border border-gray-800">
-              <p className="text-gray-400">My Users</p>
-              <p className="text-3xl font-bold">{stats.user_stats.total}</p>
-            </div>
-            <div className="bg-gray-900 p-6 rounded border border-gray-800">
-              <p className="text-gray-400">Active</p>
-              <p className="text-3xl font-bold">{stats.user_stats.active}</p>
-            </div>
-            <div className="bg-gray-900 p-6 rounded border border-gray-800">
-              <p className="text-gray-400">Revenue</p>
-              <p className="text-3xl font-bold">${stats.revenue_stats.total_revenue}</p>
-            </div>
+        {/* Stats Grid */}
+        {loading ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-white rounded-2xl border border-gray-200 p-6 animate-pulse">
+                <div className="h-4 bg-gray-200 rounded w-24 mb-3"></div>
+                <div className="h-8 bg-gray-200 rounded w-16"></div>
+              </div>
+            ))}
           </div>
+        ) : stats && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              <StatsCard
+                title="Total Users"
+                value={stats.total_users || 0}
+                icon={Users}
+                color="purple"
+              />
+              <StatsCard
+                title="Active Users"
+                value={stats.active_users || 0}
+                icon={UserCheck}
+                color="green"
+              />
+              <StatsCard
+                title="Pending Approval"
+                value={stats.pending_users || 0}
+                icon={Clock}
+                color="orange"
+              />
+              <StatsCard
+                title="Total Licenses"
+                value={stats.total_licenses || 0}
+                icon={Key}
+                color="blue"
+                subtitle={`${stats.used_licenses || 0} used`}
+              />
+            </div>
+
+            {/* Branding Info */}
+            {stats.system_name && (
+              <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl p-6 text-white">
+                <p className="text-purple-200 text-sm">Your System</p>
+                <h2 className="text-3xl font-bold mt-1">{stats.system_name}</h2>
+                <p className="text-purple-200 mt-2">Mentor ID: {stats.mentor_id}</p>
+              </div>
+            )}
+          </>
         )}
 
-        <div className="bg-gray-900 p-6 rounded border border-gray-800">
-          <h2 className="text-xl font-bold mb-4">My Users</h2>
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-800">
-                <th className="text-left py-2">Email</th>
-                <th className="text-left py-2">Status</th>
-                <th className="text-left py-2">Payment</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user: any) => (
-                <tr key={user._id} className="border-b border-gray-800">
-                  <td className="py-2">{user.email}</td>
-                  <td className="py-2">
-                    <span className={`px-2 py-1 rounded text-xs ${user.status === 'active' ? 'bg-green-500' : 'bg-yellow-500'}`}>
+        {/* Recent Users */}
+        <div className="bg-white rounded-2xl border border-gray-200">
+          <div className="p-6 border-b border-gray-100">
+            <h2 className="text-lg font-semibold text-gray-900">Recent Users</h2>
+          </div>
+          <div className="divide-y divide-gray-100">
+            {recentUsers.length === 0 ? (
+              <div className="p-8 text-center text-gray-500">No users yet</div>
+            ) : (
+              recentUsers.map((user: any) => (
+                <div key={user._id} className="p-4 flex items-center justify-between hover:bg-gray-50">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
+                      <span className="text-purple-600 font-medium">
+                        {(user.name || user.email)?.[0]?.toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-900">{user.name || 'No name'}</p>
+                      <p className="text-sm text-gray-500">{user.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      user.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                    }`}>
                       {user.status}
                     </span>
-                  </td>
-                  <td className="py-2">
-                    <span className={`px-2 py-1 rounded text-xs ${user.payment_status === 'paid' ? 'bg-green-500' : 'bg-red-500'}`}>
-                      {user.payment_status}
+                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                      user.payment_status === 'paid' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-700'
+                    }`}>
+                      {user.payment_status || 'unpaid'}
                     </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </DashboardLayout>
   )
 }
