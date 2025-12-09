@@ -41,7 +41,7 @@ export default function WaitingApproval() {
       const token = await AsyncStorage.getItem('token');
       if (!token) return;
 
-      const response = await fetch(`${BACKEND_URL}/payment/status/${sessionId}`, {
+      const response = await fetch(`${BACKEND_URL}/api/payment/status/${sessionId}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -50,8 +50,21 @@ export default function WaitingApproval() {
       const data = await response.json();
 
       if (data.payment_status === 'paid') {
-        console.log('Payment verified, waiting for admin approval');
-        setChecking(true);
+        console.log('✅ Payment verified successfully! Granting immediate access...');
+        setApproved(true);
+        setChecking(false);
+        
+        // Show success message then redirect immediately
+        Alert.alert(
+          '🎉 Payment Successful!',
+          'Your payment has been processed. Welcome to MI Mobile Indicator!',
+          [
+            {
+              text: 'Continue',
+              onPress: () => router.replace('/(tabs)')
+            }
+          ]
+        );
       }
     } catch (error) {
       console.error('Payment verification error:', error);
@@ -66,20 +79,8 @@ export default function WaitingApproval() {
         return;
       }
 
-      const response = await fetch(`${BACKEND_URL}/user/payment-status`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to check status');
-      }
-
-      const data = await response.json();
-      
       // Check user status by getting user profile
-      const profileResponse = await fetch(`${BACKEND_URL}/user/profile`, {
+      const profileResponse = await fetch(`${BACKEND_URL}/api/user/profile`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -88,15 +89,16 @@ export default function WaitingApproval() {
       if (profileResponse.ok) {
         const profileData = await profileResponse.json();
         
-        // If status is active, user is approved
-        if (profileData.status === 'active') {
+        // If payment is complete and status is active, grant immediate access
+        if (profileData.payment_status === 'paid' && profileData.status === 'active') {
+          console.log('✅ User has paid and is active - granting access');
           setApproved(true);
           setChecking(false);
           
           // Redirect to home after showing success message
           setTimeout(() => {
             router.replace('/(tabs)');
-          }, 2000);
+          }, 1500);
         }
       }
     } catch (error) {
