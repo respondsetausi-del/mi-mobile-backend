@@ -1,6 +1,8 @@
+import './globals.css'
+
 export const metadata = {
-  title: 'MI Mobile Indicator Dashboard',
-  description: 'Admin & Mentor Portal',
+  title: 'MI Mobile Indicator - Dashboard',
+  description: 'Admin & Mentor Management Portal',
 }
 
 export default function RootLayout({
@@ -10,7 +12,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body className="bg-gray-50 min-h-screen">{children}</body>
     </html>
   )
 }
