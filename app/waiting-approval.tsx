@@ -120,15 +120,19 @@ export default function WaitingApproval() {
               <Ionicons name="hourglass-outline" size={80} color="#00D9FF" />
             </View>
             
-            <Text style={styles.title}>Payment Received!</Text>
-            <Text style={styles.subtitle}>Waiting for Admin Approval</Text>
+            <Text style={styles.title}>Account Activation</Text>
+            <Text style={styles.subtitle}>Verifying Your Access</Text>
             
             <View style={styles.infoBox}>
               <Text style={styles.infoText}>
-                Your payment has been successfully processed. Your account is now pending admin approval.
+                Your payment has been successfully processed! 
               </Text>
               <Text style={styles.infoText} style={{marginTop: 16}}>
-                You will receive an email once your account is approved and you can start using the app.
+                Your account is being activated automatically. This usually takes just a few seconds.
+              </Text>
+              <Text style={styles.infoText} style={{marginTop: 16}}>
+                ✅ Payment Confirmed
+                {'\n'}🔄 Activating Account...
               </Text>
             </View>
 
@@ -140,11 +144,11 @@ export default function WaitingApproval() {
             <View style={styles.stepContainer}>
               <View style={styles.step}>
                 <Ionicons name="checkmark-circle" size={24} color="#4CAF50" />
-                <Text style={styles.stepText}>Payment Completed</Text>
+                <Text style={styles.stepText}>✅ Payment Completed</Text>
               </View>
               <View style={styles.step}>
-                <Ionicons name="time-outline" size={24} color="#FFA500" />
-                <Text style={styles.stepText}>Pending Approval</Text>
+                <Ionicons name="refresh-circle" size={24} color="#00D9FF" />
+                <Text style={styles.stepText}>🔄 Activating Account</Text>
               </View>
               <View style={styles.step}>
                 <Ionicons name="home-outline" size={24} color="#666" />
