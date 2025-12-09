@@ -2530,24 +2530,34 @@ async def get_pending_users(current_admin = Depends(get_current_admin)):
 
 @api_router.post("/admin/users/{user_id}/approve")
 async def approve_user(user_id: str, current_admin = Depends(get_current_admin)):
-    """Approve a pending user (admin only)"""
+    """Approve a pending user (admin only) - Grants full access regardless of payment status"""
     try:
         result = await db.users.update_one(
-            {"_id": ObjectId(user_id), "status": "pending"},
-            {"$set": {"status": "active", "approved_at": datetime.utcnow(), "approved_by": str(current_admin["_id"])}}
+            {"_id": ObjectId(user_id)},
+            {
+                "$set": {
+                    "status": "active",
+                    "payment_status": "paid",  # Admin approval grants paid status
+                    "approved_at": datetime.utcnow(),
+                    "approved_by": str(current_admin["_id"]),
+                    "approval_method": "admin"
+                }
+            }
         )
         if result.modified_count == 0:
-            raise HTTPException(status_code=404, detail="User not found or already approved")
+            raise HTTPException(status_code=404, detail="User not found")
         
         # Log activity
         await db.user_activity.insert_one({
             "user_id": str(current_admin["_id"]),
             "action": "user_approved",
-            "details": {"approved_user_id": user_id},
+            "details": {"approved_user_id": user_id, "granted_paid_status": True},
             "timestamp": datetime.utcnow()
         })
         
-        return {"message": "User approved successfully"}
+        logger.info(f"✅ Admin {current_admin['email']} approved user {user_id} - Status: active, Payment: paid")
+        
+        return {"message": "User approved successfully and granted full access"}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
