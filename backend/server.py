@@ -5590,3 +5590,233 @@ logger = logging.getLogger(__name__)
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
+
+# ============================================================================
+# ANALYTICS & METRICS ENDPOINTS - MI MOBILE INDICATOR WEB DASHBOARD
+# Added: Phase 1 - Backend Extensions
+# ============================================================================
+
+@api_router.get("/admin/analytics/overview")
+async def get_analytics_overview(current_admin = Depends(get_current_admin)):
+    """
+    Get complete analytics overview for admin dashboard
+    Returns: user stats, revenue, APK metrics, recent activity
+    """
+    try:
+        # User Statistics
+        total_users = await db.users.count_documents({"role": "user"})
+        active_users = await db.users.count_documents({"role": "user", "status": "active"})
+        paid_users = await db.users.count_documents({"role": "user", "payment_status": "paid"})
+        pending_users = await db.users.count_documents({"role": "user", "status": "pending"})
+        
+        # Revenue Statistics
+        revenue_pipeline = [
+            {"$match": {"payment_status": "paid"}},
+            {"$group": {
+                "_id": None,
+                "total_revenue": {"$sum": 35},  # $35 per user
+                "total_paid_users": {"$sum": 1}
+            }}
+        ]
+        revenue_result = await db.users.aggregate(revenue_pipeline).to_list(1)
+        total_revenue = revenue_result[0]["total_revenue"] if revenue_result else 0
+        
+        # Recent registrations (last 7 days)
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        recent_registrations = await db.users.count_documents({
+            "role": "user",
+            "created_at": {"$gte": seven_days_ago}
+        })
+        
+        # License key statistics
+        total_licenses = await db.license_keys.count_documents({})
+        used_licenses = await db.license_keys.count_documents({"status": "used"})
+        unused_licenses = total_licenses - used_licenses
+        
+        # Recent activity (last 30 days)
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        recent_payments = await db.users.count_documents({
+            "payment_status": "paid",
+            "payment_date": {"$gte": thirty_days_ago}
+        })
+        
+        return {
+            "user_stats": {
+                "total": total_users,
+                "active": active_users,
+                "paid": paid_users,
+                "pending": pending_users,
+                "inactive": total_users - active_users
+            },
+            "revenue_stats": {
+                "total_revenue": total_revenue,
+                "paid_users": paid_users,
+                "average_per_user": 35,
+                "recent_payments_30d": recent_payments
+            },
+            "license_stats": {
+                "total": total_licenses,
+                "used": used_licenses,
+                "unused": unused_licenses
+            },
+            "growth_stats": {
+                "new_users_7d": recent_registrations,
+                "conversion_rate": (paid_users / total_users * 100) if total_users > 0 else 0
+            },
+            "timestamp": datetime.utcnow()
+        }
+    except Exception as e:
+        logger.error(f"Error fetching analytics overview: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/admin/analytics/users")
+async def get_user_analytics(current_admin = Depends(get_current_admin)):
+    """Get detailed user analytics and growth metrics"""
+    try:
+        # User growth over time (last 30 days)
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        
+        # Daily user registrations
+        daily_pipeline = [
+            {"$match": {"role": "user", "created_at": {"$gte": thirty_days_ago}}},
+            {"$group": {
+                "_id": {"$dateToString": {"format": "%Y-%m-%d", "date": "$created_at"}},
+                "count": {"$sum": 1}
+            }},
+            {"$sort": {"_id": 1}}
+        ]
+        daily_registrations = await db.users.aggregate(daily_pipeline).to_list(30)
+        
+        # User status distribution
+        status_pipeline = [
+            {"$match": {"role": "user"}},
+            {"$group": {"_id": "$status", "count": {"$sum": 1}}}
+        ]
+        status_distribution = await db.users.aggregate(status_pipeline).to_list(10)
+        
+        # Payment status distribution
+        payment_pipeline = [
+            {"$match": {"role": "user"}},
+            {"$group": {"_id": "$payment_status", "count": {"$sum": 1}}}
+        ]
+        payment_distribution = await db.users.aggregate(payment_pipeline).to_list(10)
+        
+        return {
+            "daily_registrations": [
+                {"date": item["_id"], "count": item["count"]} 
+                for item in daily_registrations
+            ],
+            "status_distribution": [
+                {"status": item["_id"], "count": item["count"]} 
+                for item in status_distribution
+            ],
+            "payment_distribution": [
+                {"status": item["_id"], "count": item["count"]} 
+                for item in payment_distribution
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error fetching user analytics: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/admin/analytics/revenue")
+async def get_revenue_analytics(current_admin = Depends(get_current_admin)):
+    """Get detailed revenue analytics"""
+    try:
+        # Monthly revenue (last 12 months)
+        one_year_ago = datetime.utcnow() - timedelta(days=365)
+        
+        monthly_pipeline = [
+            {"$match": {"payment_status": "paid", "payment_date": {"$gte": one_year_ago}}},
+            {"$group": {
+                "_id": {
+                    "year": {"$year": "$payment_date"},
+                    "month": {"$month": "$payment_date"}
+                },
+                "revenue": {"$sum": 35},
+                "count": {"$sum": 1}
+            }},
+            {"$sort": {"_id.year": 1, "_id.month": 1}}
+        ]
+        monthly_revenue = await db.users.aggregate(monthly_pipeline).to_list(12)
+        
+        # Total revenue
+        total_paid = await db.users.count_documents({"payment_status": "paid"})
+        total_revenue = total_paid * 35
+        
+        # Revenue by approval method
+        approval_pipeline = [
+            {"$match": {"payment_status": "paid"}},
+            {"$group": {
+                "_id": "$approval_method",
+                "count": {"$sum": 1},
+                "revenue": {"$sum": 35}
+            }}
+        ]
+        approval_revenue = await db.users.aggregate(approval_pipeline).to_list(10)
+        
+        return {
+            "total_revenue": total_revenue,
+            "total_paid_users": total_paid,
+            "monthly_revenue": [
+                {
+                    "year": item["_id"]["year"],
+                    "month": item["_id"]["month"],
+                    "revenue": item["revenue"],
+                    "users": item["count"]
+                }
+                for item in monthly_revenue
+            ],
+            "revenue_by_method": [
+                {
+                    "method": item["_id"] or "payment",
+                    "users": item["count"],
+                    "revenue": item["revenue"]
+                }
+                for item in approval_revenue
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error fetching revenue analytics: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/mentor/analytics/my-users")
+async def get_mentor_user_analytics(current_mentor = Depends(get_current_mentor)):
+    """Get analytics for mentor's assigned users"""
+    try:
+        mentor_id = current_mentor.get("mentor_id")
+        
+        # Total assigned users
+        total_users = await db.users.count_documents({"mentor_id": mentor_id})
+        active_users = await db.users.count_documents({"mentor_id": mentor_id, "status": "active"})
+        paid_users = await db.users.count_documents({"mentor_id": mentor_id, "payment_status": "paid"})
+        
+        # Revenue from mentor's users
+        revenue = paid_users * 35
+        
+        # Recent activity
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        recent_users = await db.users.count_documents({
+            "mentor_id": mentor_id,
+            "created_at": {"$gte": seven_days_ago}
+        })
+        
+        return {
+            "user_stats": {
+                "total": total_users,
+                "active": active_users,
+                "paid": paid_users,
+                "recent_7d": recent_users
+            },
+            "revenue_stats": {
+                "total_revenue": revenue,
+                "paid_users": paid_users
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error fetching mentor analytics: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
