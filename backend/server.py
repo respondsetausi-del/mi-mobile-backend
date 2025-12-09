@@ -1464,7 +1464,7 @@ async def get_mentor_users(current_mentor = Depends(get_current_mentor)):
 
 @api_router.post("/mentor/users/{user_id}/activate")
 async def mentor_activate_user(user_id: str, current_mentor = Depends(get_current_mentor)):
-    """Activate a user (mentor only for their users)"""
+    """Activate a user (mentor only for their users) - Grants full access regardless of payment status"""
     mentor_id = current_mentor.get("mentor_id")
     
     # Verify user belongs to this mentor
@@ -1474,11 +1474,20 @@ async def mentor_activate_user(user_id: str, current_mentor = Depends(get_curren
     
     result = await db.users.update_one(
         {"_id": ObjectId(user_id)},
-        {"$set": {"status": "active"}}
+        {
+            "$set": {
+                "status": "active",
+                "payment_status": "paid",  # Mentor activation grants paid status
+                "approved_at": datetime.utcnow(),
+                "approved_by": str(current_mentor["_id"]),
+                "approval_method": "mentor"
+            }
+        }
     )
     
     if result.modified_count > 0:
-        return {"message": "User activated successfully"}
+        logger.info(f"✅ Mentor {current_mentor['email']} activated user {user_id} - Status: active, Payment: paid")
+        return {"message": "User activated successfully and granted full access"}
     else:
         raise HTTPException(status_code=400, detail="Failed to activate user")
 
