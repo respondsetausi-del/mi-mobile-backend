@@ -5484,40 +5484,31 @@ async def fetch_live_economic_calendar():
 @api_router.get("/user/brokers")
 async def get_user_brokers(current_user = Depends(get_current_user)):
     """
-    Get all brokers sent to this user (from admin and their mentor)
-    Shows brokers in rotation after some time
+    Get all active brokers for this user
+    Returns all brokers added by admin/mentor (public brokers)
     """
     try:
-        user_id = str(current_user["_id"])
-        
-        # Get broker notifications for this user
-        notifications = await db.broker_notifications.find({
-            "user_id": user_id
+        # Fetch all active brokers from database
+        all_brokers = await db.brokers.find({
+            "status": {"$ne": "deleted"}  # Show all non-deleted brokers
         }).sort("created_at", -1).to_list(length=100)
         
         brokers = []
-        unseen_count = 0
-        
-        for notif in notifications:
-            broker = await db.brokers.find_one({
-                "_id": ObjectId(notif["broker_id"]),
-                "status": "active"
+        for broker in all_brokers:
+            brokers.append({
+                "_id": str(broker["_id"]),
+                "broker_name": broker.get("broker_name"),
+                "broker_image": broker.get("broker_image"),
+                "affiliate_link": broker.get("affiliate_link"),
+                "description": broker.get("description"),
+                "created_at": broker.get("created_at")
             })
-            
-            if broker:
-                brokers.append({
-                    **serialize_doc(broker),
-                    "seen": notif.get("seen", False),
-                    "notification_id": str(notif["_id"]),
-                    "received_at": notif.get("created_at")
-                })
-                
-                if not notif.get("seen"):
-                    unseen_count += 1
+        
+        logger.info(f"✅ User {current_user['email']} fetched {len(brokers)} brokers")
         
         return {
             "brokers": brokers,
-            "unseen_count": unseen_count
+            "total": len(brokers)
         }
         
     except Exception as e:
