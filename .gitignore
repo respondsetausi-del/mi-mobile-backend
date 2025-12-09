@@ -233,3 +233,7 @@ mi-web/.next/
 *.env.*
 mi-web/node_modules/
 mi-web/.next/
+-e 
+# Environment files
+*.env
+*.env.*
