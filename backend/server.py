@@ -5922,3 +5922,143 @@ async def export_revenue(current_admin = Depends(get_current_admin)):
         logger.error(f"Error exporting revenue: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ============================================================================
+# TRACKING ENDPOINTS - APK Usage Tracking
+# ============================================================================
+
+# Tracking data model
+class AppTrackingData(BaseModel):
+    event_type: str  # "app_open", "feature_usage", "session_end"
+    user_id: Optional[str] = None
+    data: Optional[dict] = None
+
+@api_router.post("/tracking/app-open")
+async def track_app_open(tracking_data: AppTrackingData):
+    """Track when user opens the app"""
+    try:
+        await db.app_tracking.insert_one({
+            "event_type": "app_open",
+            "user_id": tracking_data.user_id,
+            "timestamp": datetime.utcnow(),
+            "data": tracking_data.data or {}
+        })
+        return {"status": "tracked"}
+    except Exception as e:
+        logger.error(f"Error tracking app open: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.post("/tracking/feature-usage")
+async def track_feature_usage(tracking_data: AppTrackingData):
+    """Track feature usage in the app"""
+    try:
+        await db.app_tracking.insert_one({
+            "event_type": "feature_usage",
+            "user_id": tracking_data.user_id,
+            "feature": tracking_data.data.get("feature"),
+            "timestamp": datetime.utcnow(),
+            "data": tracking_data.data or {}
+        })
+        return {"status": "tracked"}
+    except Exception as e:
+        logger.error(f"Error tracking feature usage: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@api_router.get("/admin/stats/apk-metrics")
+async def get_apk_metrics(current_admin = Depends(get_current_admin)):
+    """Get APK usage metrics"""
+    try:
+        # Total app opens (last 30 days)
+        thirty_days_ago = datetime.utcnow() - timedelta(days=30)
+        
+        total_opens = await db.app_tracking.count_documents({
+            "event_type": "app_open",
+            "timestamp": {"$gte": thirty_days_ago}
+        })
+        
+        # Unique users (DAU - Daily Active Users)
+        today_start = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+        daily_users = await db.app_tracking.distinct("user_id", {
+            "event_type": "app_open",
+            "timestamp": {"$gte": today_start}
+        })
+        dau = len([u for u in daily_users if u])
+        
+        # Weekly Active Users
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        weekly_users = await db.app_tracking.distinct("user_id", {
+            "event_type": "app_open",
+            "timestamp": {"$gte": seven_days_ago}
+        })
+        wau = len([u for u in weekly_users if u])
+        
+        # Feature usage
+        feature_usage = await db.app_tracking.aggregate([
+            {"$match": {"event_type": "feature_usage", "timestamp": {"$gte": thirty_days_ago}}},
+            {"$group": {"_id": "$feature", "count": {"$sum": 1}}},
+            {"$sort": {"count": -1}},
+            {"$limit": 10}
+        ]).to_list(10)
+        
+        return {
+            "total_opens_30d": total_opens,
+            "daily_active_users": dau,
+            "weekly_active_users": wau,
+            "monthly_active_users": len(weekly_users),
+            "top_features": [
+                {"feature": item["_id"], "usage_count": item["count"]}
+                for item in feature_usage
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error fetching APK metrics: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@api_router.get("/admin/stats/users/{user_id}")
+async def get_user_detailed_stats(user_id: str, current_admin = Depends(get_current_admin)):
+    """Get detailed stats for a specific user"""
+    try:
+        user = await db.users.find_one({"_id": ObjectId(user_id)})
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # User's app opens
+        user_opens = await db.app_tracking.count_documents({
+            "user_id": user_id,
+            "event_type": "app_open"
+        })
+        
+        # Last seen
+        last_activity = await db.app_tracking.find_one(
+            {"user_id": user_id},
+            sort=[("timestamp", -1)]
+        )
+        
+        # Feature usage
+        user_features = await db.app_tracking.aggregate([
+            {"$match": {"user_id": user_id, "event_type": "feature_usage"}},
+            {"$group": {"_id": "$feature", "count": {"$sum": 1}}}
+        ]).to_list(20)
+        
+        return {
+            "user_info": {
+                "email": user.get("email"),
+                "name": user.get("name"),
+                "status": user.get("status"),
+                "payment_status": user.get("payment_status"),
+                "created_at": user.get("created_at")
+            },
+            "activity": {
+                "total_app_opens": user_opens,
+                "last_seen": last_activity.get("timestamp") if last_activity else None,
+                "features_used": [
+                    {"feature": item["_id"], "count": item["count"]}
+                    for item in user_features
+                ]
+            }
+        }
+    except Exception as e:
+        logger.error(f"Error fetching user stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
