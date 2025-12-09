@@ -225,3 +225,5 @@ android-sdk/ -e
 # Environment files
 *.env
 *.env.*
+mi-web/node_modules/
+mi-web/.next/
