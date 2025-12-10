@@ -25,13 +25,13 @@ export default function AdminSignals() {
     setResult(null)
 
     try {
-      const data = await apiPost('/admin/send-manual-signal', {
+      const data = await apiPost('/admin/send-signal', {
         symbol: signal.symbol,
         action: signal.action,
-        entry_price: parseFloat(signal.entry_price) || undefined,
-        stop_loss: parseFloat(signal.stop_loss) || undefined,
-        take_profit: parseFloat(signal.take_profit) || undefined,
-        notes: signal.notes || undefined
+        entry_price: parseFloat(signal.entry_price) || null,
+        stop_loss: parseFloat(signal.stop_loss) || null,
+        take_profit: parseFloat(signal.take_profit) || null,
+        notes: signal.notes || ''
       })
       setResult({ success: true, message: `Signal sent to ${data.recipient_count} users!` })
       setSignal({ symbol: 'EUR/USD', action: 'BUY', entry_price: '', stop_loss: '', take_profit: '', notes: '' })
