@@ -1,0 +1,79 @@
+<analysis>
+The trajectory details a comprehensive development cycle for the MI Mobile Indicator application, starting from a foundational architectural refactor to complex feature implementation and persistent bug squashing. The work began by integrating a real-time data feed from the Twelve Data API, replacing a mock data system. This involved significant backend work in , including adding new endpoints, installing Python libraries (, ), and managing API keys.
+
+The engineer then undertook numerous UI/UX and functionality fixes based on user feedback. Key changes included remodeling the Remove Selected feature, fixing a broken drag-and-drop on the , debugging and repopulating the database to fix widespread login failures, and restoring a missing wallpaper. A major user request led to a redesign of the navigation, removing top-level icons for Brokers and News and adding them as persistent tabs in the bottom navigation bar.
+
+The most critical and recurring issue throughout the trajectory was the backend becoming unresponsive, preventing logins in the built APK. This was eventually root-caused to the preview backend environment sleeping due to inactivity. The previous engineer explained the limitations of the preview environment and proposed several solutions. The user chose Option 1 to implement a Keep-Alive Service to prevent the backend from sleeping. The trajectory concludes just as the engineer is about to begin implementing this final, critical fix.
+
+The user's primary language is English. The next agent must respond in English.
+</analysis>
+
+<product_requirements>
+The MI Mobile Indicator is a mobile application for forex traders designed to provide real-time trading signals.
+
+**Core Features:**
+-   **Signal Monitoring**: Users can select a financial instrument and start a monitoring session to receive BUY/SELL/NEUTRAL signals based on technical indicators.
+-   **Real-Time Data**: The app integrates with the Twelve Data API to fetch live market data, calculates indicator values (RSI, MACD, etc.), and generates signals every 10 seconds.
+-   **Persistent Notifications**: The app uses background tasks and push notifications to alert users of signals even when the app is closed. A floating bubble provides a system-wide signal overlay.
+-   **User Management**: The application supports different user roles (User, Mentor, Admin) with a login system.
+-   **Content Tabs**: The UI includes dedicated tabs for Home (monitoring control), Signals (list of active monitors), News, and Brokers.
+
+**Problem Statement:**
+The primary blocker is that the standalone APK becomes non-functional after a period of inactivity because users cannot log in. This has been identified as an issue with the preview backend environment, which goes to sleep. The immediate requirement is to implement a solution that ensures the backend remains active 24/7 so the production-ready APK is consistently usable.
+</product_requirements>
+
+<key_technical_concepts>
+- **Full-Stack Architecture**: Expo (React Native) frontend, FastAPI (Python) backend, and MongoDB database.
+- **Real-Time Data**: Integration with **Twelve Data API** for live forex data.
+- **Technical Analysis**: Use of Python libraries (, ) for calculating indicators.
+- **Background Processing**: Use of  and  to run monitoring tasks and send notifications when the app is in the background.
+- **Deployment & Environment**: EAS Build for generating standalone APKs. The core issue revolves around the limitations of the preview/development environment URL (), which is not a persistent production service.
+</key_technical_concepts>
+
+<code_architecture>
+The application follows a monorepo structure with distinct  and  directories.
+
+
+
+-   ****
+    -   **Importance**: This is the core of the backend, defining all API endpoints, handling user authentication (login), data models (Pydantic), and interaction with the MongoDB database.
+    -   **Summary of Changes**: Heavily modified to add endpoints for calculating technical indicators (), debugged authentication logic by fixing user roles and status fields (), and fixed database queries for fetching brokers.
+
+-   ****
+    -   **Importance**: Defines the main tab-based navigation for the application using .
+    -   **Summary of Changes**: Updated to create a four-tab layout as requested by the user: Home, Signals, News, and Brokers, ensuring a consistent look and feel.
+
+-   ****
+    -   **Importance**: The main home screen. It contains the primary UI for starting/stopping signal monitoring, displaying the theme, and integrating background tasks.
+    -   **Summary of Changes**: Icons for News and Brokers were removed from this screen. Logic was added to integrate with  to start and stop background fetching when the user presses the START/STOP button.
+
+-   ** & **
+    -   **Importance**: These are the new screens for displaying lists of brokers and news articles, respectively.
+    -   **Summary of Changes**: Created from scratch.  was renamed to , and a new  was created. Both were styled with a solid black background and updated to fetch data from the correct backend endpoints to fix issues where they appeared empty.
+
+-   ****
+    -   **Importance**: This new file contains the logic for running tasks in the background.
+    -   **Summary of Changes**: Created to define a background task () using  that will periodically poll for signals and trigger push notifications, allowing the app to function when closed.
+
+-   ****
+    -   **Importance**: Configuration file for EAS (Expo Application Services) builds.
+    -   **Summary of Changes**: The  profile was modified to ensure it builds a true standalone APK () rather than one dependent on the Expo Go app.
+</code_architecture>
+
+<pending_tasks>
+- **Implement Keep-Alive Service**: Create a service that periodically pings the preview backend to prevent it from going to sleep, ensuring users can log in to the APK at any time.
+- **Confirm Backend Persistence**: After implementing the keep-alive service, verify that the login functionality remains active over an extended period.
+- **Final APK Build**: Once the backend sleep issue is resolved, perform a final build of the standalone APK and provide the download link to the user.
+</pending_tasks>
+
+<current_work>
+The most recent interactions focused on solving a critical login failure in the standalone APK. The user reported that after some time, the app would no longer allow logins. After extensive investigation, the root cause was identified: the **preview backend environment goes to sleep after a period of inactivity**. This is a known limitation of the development/preview infrastructure.
+
+The previous engineer explained this to the user and presented several options. The user decisively chose **Option 1: Implement a Keep-Alive Service**. This solution involves creating a simple, lightweight service that sends a request to the backend API every few minutes to prevent the server process from being idled.
+
+The last action taken was the AI engineer acknowledging this choice and preparing to implement the Keep-Alive service immediately to provide a 24/7-awake backend for the APK. The goal is to make the current preview environment behave like a persistent production server, thus resolving the login issue permanently.
+</current_work>
+
+<optional_next_step>
+Implement the Keep-Alive Service to ping the backend periodically and prevent it from going to sleep, as per the user's selection of Option 1.
+</optional_next_step>

@@ -6,20 +6,18 @@ import { Send, CheckCircle, AlertCircle } from 'lucide-react'
 
 export default function MentorSignals() {
   const [signal, setSignal] = useState({
-    symbol: 'EURUSD',
-    signal_type: 'BUY',
-    indicator: 'Manual Signal',
-    candle_pattern: 'Mentor Signal',
-    timeframe: 'H1',
-    notes: '',
-    duration_seconds: 3600
+    symbol: 'EUR/USD',
+    action: 'BUY',
+    entry_price: '',
+    stop_loss: '',
+    take_profit: '',
+    notes: ''
   })
   const [sending, setSending] = useState(false)
   const [result, setResult] = useState<{success: boolean, message: string} | null>(null)
 
-  const symbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'NZDUSD', 'USDCAD', 'XAUUSD']
-  const signalTypes = ['BUY', 'SELL']
-  const timeframes = ['M1', 'M5', 'M15', 'M30', 'H1', 'H4', 'D1']
+  const symbols = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'AUD/USD', 'NZD/USD', 'USD/CAD', 'XAU/USD']
+  const actions = ['BUY', 'SELL', 'CLOSE']
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -27,16 +25,16 @@ export default function MentorSignals() {
     setResult(null)
 
     try {
-      const data = await apiPost('/mentor/send-signal', {
+      const data = await apiPost('/mentor/send-manual-signal', {
         symbol: signal.symbol,
-        signal_type: signal.signal_type,
-        indicator: signal.indicator,
-        candle_pattern: signal.candle_pattern,
-        timeframe: signal.timeframe,
-        notes: signal.notes || '',
-        duration_seconds: signal.duration_seconds
+        action: signal.action,
+        entry_price: parseFloat(signal.entry_price) || undefined,
+        stop_loss: parseFloat(signal.stop_loss) || undefined,
+        take_profit: parseFloat(signal.take_profit) || undefined,
+        notes: signal.notes || undefined
       })
       setResult({ success: true, message: `Signal sent to ${data.recipient_count} users!` })
+      setSignal({ symbol: 'EUR/USD', action: 'BUY', entry_price: '', stop_loss: '', take_profit: '', notes: '' })
     } catch (err) {
       setResult({ success: false, message: 'Failed to send signal' })
     } finally {
@@ -66,49 +64,51 @@ export default function MentorSignals() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Signal Type</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Action</label>
                 <select
-                  value={signal.signal_type}
-                  onChange={(e) => setSignal({...signal, signal_type: e.target.value})}
+                  value={signal.action}
+                  onChange={(e) => setSignal({...signal, action: e.target.value})}
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
                 >
-                  {signalTypes.map(t => <option key={t} value={t}>{t}</option>)}
+                  {actions.map(a => <option key={a} value={a}>{a}</option>)}
                 </select>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Timeframe</label>
-                <select
-                  value={signal.timeframe}
-                  onChange={(e) => setSignal({...signal, timeframe: e.target.value})}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                >
-                  {timeframes.map(tf => <option key={tf} value={tf}>{tf}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Duration (minutes)</label>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Entry Price</label>
                 <input
                   type="number"
-                  min={1}
-                  value={Math.floor(signal.duration_seconds / 60)}
-                  onChange={(e) => setSignal({...signal, duration_seconds: parseInt(e.target.value) * 60 || 60})}
+                  step="0.00001"
+                  value={signal.entry_price}
+                  onChange={(e) => setSignal({...signal, entry_price: e.target.value})}
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="1.08500"
                 />
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Indicator</label>
-              <input
-                type="text"
-                value={signal.indicator}
-                onChange={(e) => setSignal({...signal, indicator: e.target.value})}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
-                placeholder="RSI Divergence, MACD Crossover, etc."
-              />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Stop Loss</label>
+                <input
+                  type="number"
+                  step="0.00001"
+                  value={signal.stop_loss}
+                  onChange={(e) => setSignal({...signal, stop_loss: e.target.value})}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="1.08200"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Take Profit</label>
+                <input
+                  type="number"
+                  step="0.00001"
+                  value={signal.take_profit}
+                  onChange={(e) => setSignal({...signal, take_profit: e.target.value})}
+                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  placeholder="1.09000"
+                />
+              </div>
             </div>
 
             <div>

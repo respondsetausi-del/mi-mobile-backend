@@ -35,10 +35,7 @@ export default function AdminMentors() {
   const loadMentors = async () => {
     try {
       const data = await apiGet('/admin/mentors')
-      // API returns array directly, not {mentors: []}
-      const mentorsList = Array.isArray(data) ? data : (data.mentors || [])
-      setMentors(mentorsList)
-      console.log('Loaded mentors:', mentorsList.length)
+      setMentors(data.mentors || [])
     } catch (err) {
       console.error('Failed to load mentors:', err)
     } finally {

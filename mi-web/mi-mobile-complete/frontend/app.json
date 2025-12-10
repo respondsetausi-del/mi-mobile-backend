@@ -1,0 +1,75 @@
+{
+  "expo": {
+    "name": "MI Mobile Indicator Fixed",
+    "slug": "mi-mobile-indicator-fixed",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "mimobile",
+    "userInterfaceStyle": "dark",
+    "newArchEnabled": false,
+    "experiments": {
+      "reactCanary": true
+    },
+    "androidStatusBar": {
+      "backgroundColor": "#000000"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.mimobile.indicator.fixed"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "permissions": [
+        "android.permission.SYSTEM_ALERT_WINDOW",
+        "android.permission.VIBRATE",
+        "android.permission.WAKE_LOCK",
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.USE_EXACT_ALARM",
+        "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
+        "android.permission.INTERNET",
+        "android.permission.ACCESS_NETWORK_STATE"
+      ],
+      "package": "com.mimobile.indicator.fixed",
+      "useNextNotificationsApi": true
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "extra": {
+      "EXPO_PUBLIC_BACKEND_URL": "https://mi-mobile-backend.onrender.com",
+      "eas": {
+        "projectId": "cad81038-6e38-48e6-8fa9-ceb277ce265d"
+      },
+      "router": {},
+      "backendUrl": "https://mi-mobile-backend.onrender.com"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/splash-image.png",
+          "imageWidth": 200,
+          "resizeMode": "contain",
+          "backgroundColor": "#0a0e27"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/notification-icon.png",
+          "color": "#00D9FF",
+          "sounds": []
+        }
+      ]
+    ],
+    "owner": "respondthanos"
+  }
+}

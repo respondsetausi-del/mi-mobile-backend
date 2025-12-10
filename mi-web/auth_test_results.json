@@ -1,0 +1,57 @@
+{
+  "total": 7,
+  "passed": 0,
+  "failed": 7,
+  "success_rate": 0.0,
+  "results": [
+    {
+      "test": "Admin Login: admin@signalmaster.com",
+      "status": "\u274c FAIL",
+      "success": false,
+      "details": "HTTP 401: {\"detail\":\"Invalid email or password\"}",
+      "timestamp": "2025-12-02T15:41:46.073836"
+    },
+    {
+      "test": "User Login: user@test.com",
+      "status": "\u274c FAIL",
+      "success": false,
+      "details": "HTTP 401: {\"detail\":\"Invalid email or password\"}",
+      "timestamp": "2025-12-02T15:41:46.366086"
+    },
+    {
+      "test": "User Login: admin@signalmaster.com",
+      "status": "\u274c FAIL",
+      "success": false,
+      "details": "HTTP 401: {\"detail\":\"Invalid email or password\"}",
+      "timestamp": "2025-12-02T15:41:46.381212"
+    },
+    {
+      "test": "Mentor Login: legacymentor0001@placeholder.com",
+      "status": "\u274c FAIL",
+      "success": false,
+      "details": "HTTP 401: {\"detail\":\"Invalid email or password\"}",
+      "timestamp": "2025-12-02T15:41:46.433071"
+    },
+    {
+      "test": "Create Test User: test_auth_user@test.com",
+      "status": "\u274c FAIL",
+      "success": false,
+      "details": "HTTP 400: {\"detail\":\"Invalid or already used license key\"}",
+      "timestamp": "2025-12-02T15:41:46.447665"
+    },
+    {
+      "test": "Create Test User: test_auth_user@test.com",
+      "status": "\u274c FAIL",
+      "success": false,
+      "details": "HTTP 400: {\"detail\":\"Invalid or already used license key\"}",
+      "timestamp": "2025-12-02T15:41:46.499803"
+    },
+    {
+      "test": "Create Test User: test_auth_user@test.com",
+      "status": "\u274c FAIL",
+      "success": false,
+      "details": "HTTP 400: {\"detail\":\"Invalid or already used license key\"}",
+      "timestamp": "2025-12-02T15:41:46.510179"
+    }
+  ]
+}

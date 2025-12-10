@@ -1,0 +1,14 @@
+{
+  "total_tests": 13,
+  "passed_tests": 13,
+  "failed_tests": 0,
+  "working_credentials": [
+    "Admin: admin@signalmaster.com / Admin@123",
+    "User (temp password): user@test.com / tFSvVGwd8deM",
+    "User1: user1@test.com / Test@123",
+    "User2: user2@test.com / Test@123",
+    "User3: user3@test.com / Test@123",
+    "Mentor: legacymentor0001@placeholder.com / Mentor@123"
+  ],
+  "failed_credentials": []
+}
