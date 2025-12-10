@@ -30,7 +30,6 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState({ title: '', message: '' });
@@ -46,8 +45,6 @@ export default function LoginScreen() {
     console.log('>>> handleLogin CALLED <<<');
     console.log('Email:', email);
     console.log('Password length:', password ? password.length : 0);
-    console.log('isAdmin:', isAdmin);
-    console.log('loading:', loading);
     
     // Trim email and password to remove any whitespace
     const trimmedEmail = email.trim();
@@ -64,12 +61,11 @@ export default function LoginScreen() {
     setLoading(true);
 
     try {
-      console.log('>>> Attempting login... <<<');
-      console.log('Login type:', isAdmin ? 'admin' : 'user');
+      console.log('>>> Attempting user login... <<<');
       console.log('Email (trimmed):', trimmedEmail);
       console.log('Password length (trimmed):', trimmedPassword.length);
 
-      const endpoint = isAdmin ? '/api/admin/login' : '/api/auth/login';
+      const endpoint = '/api/auth/login';
       const url = `${API_URL}${endpoint}`;
       console.log('Login URL:', url);
 
@@ -122,7 +118,7 @@ export default function LoginScreen() {
       // Store all auth data
       await AsyncStorage.setItem('authToken', access_token);
       await AsyncStorage.setItem('token', access_token);
-      await AsyncStorage.setItem('userType', user_type || (isAdmin ? 'admin' : 'user'));
+      await AsyncStorage.setItem('userType', user_type || 'user');
       
       if (user) {
         await AsyncStorage.setItem('userData', JSON.stringify(user));
@@ -131,55 +127,35 @@ export default function LoginScreen() {
       // Ensure all data is persisted before navigation
       await AsyncStorage.flushGetRequests();
       
-      if (requires_password_change && !isAdmin) {
+      if (requires_password_change) {
         router.replace('/change-password');
         return;
       }
       
-      console.log('User type check:', { user_type, isAdmin });
+      // User login - check payment and status
+      console.log('=== USER LOGIN ROUTING DEBUG ===');
+      console.log('status:', status, 'type:', typeof status);
+      console.log('payment_status:', payment_status, 'type:', typeof payment_status);
+      console.log('requires_payment:', requires_payment, 'type:', typeof requires_payment);
       
-      if (user_type === 'admin' || isAdmin) {
-        console.log('✓ Admin user detected - Token stored, navigating to /admin');
-        
-        // Small delay to ensure AsyncStorage has persisted
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        // Verify token is stored
-        const verifyToken = await AsyncStorage.getItem('authToken');
-        console.log('✓ Token verified before navigation:', verifyToken ? 'YES' : 'NO');
-        
-        try {
-          router.replace('/admin');
-          console.log('✓ Navigation to /admin called');
-        } catch (navError) {
-          console.error('✗ Navigation error:', navError);
-        }
-      } else {
-        // User login - check payment and status
-        console.log('=== USER LOGIN ROUTING DEBUG ===');
-        console.log('status:', status, 'type:', typeof status);
-        console.log('payment_status:', payment_status, 'type:', typeof payment_status);
-        console.log('requires_payment:', requires_payment, 'type:', typeof requires_payment);
-        
-        // Priority 1: Check if user has paid (regardless of status)
-        if (payment_status === 'paid') {
-          console.log('✅ CONDITION MET: payment_status === "paid"');
-          console.log('✅ Redirecting to home page /(tabs)');
-          router.replace('/(tabs)');
-        }
-        // Priority 2: Check if payment is required
-        else if (requires_payment === true || payment_status === 'unpaid') {
-          console.log('💳 CONDITION MET: requires_payment or unpaid');
-          console.log('💳 Redirecting to payment page');
-          router.replace('/payment');
-        }
-        // Priority 3: Handle edge cases
-        else {
-          console.log('❌ NO CONDITIONS MET - Edge case');
-          console.log('Status:', { status, payment_status, requires_payment });
-          setErrorMessage({ title: 'Account Status', message: 'Your account is not active. Please contact support.' });
-          setShowErrorModal(true);
-        }
+      // Priority 1: Check if user has paid (regardless of status)
+      if (payment_status === 'paid') {
+        console.log('✅ CONDITION MET: payment_status === "paid"');
+        console.log('✅ Redirecting to home page /(tabs)');
+        router.replace('/(tabs)');
+      }
+      // Priority 2: Check if payment is required
+      else if (requires_payment === true || payment_status === 'unpaid') {
+        console.log('💳 CONDITION MET: requires_payment or unpaid');
+        console.log('💳 Redirecting to payment page');
+        router.replace('/payment');
+      }
+      // Priority 3: Handle edge cases
+      else {
+        console.log('❌ NO CONDITIONS MET - Edge case');
+        console.log('Status:', { status, payment_status, requires_payment });
+        setErrorMessage({ title: 'Account Status', message: 'Your account is not active. Please contact support.' });
+        setShowErrorModal(true);
       }
     } catch (error: any) {
       console.error('Login error:', error);
@@ -192,10 +168,6 @@ export default function LoginScreen() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const goToMentorLogin = () => {
-    router.push('/mentor-login');
   };
 
   const goToRegister = () => {
@@ -217,26 +189,6 @@ export default function LoginScreen() {
           <Text style={styles.logo}>MI</Text>
           <Text style={styles.slogan}>Mobile Indicator</Text>
           <Text style={styles.subtitle}>EA Trading Management Platform</Text>
-        </View>
-
-        {/* Login Type Toggle */}
-        <View style={styles.toggleContainer}>
-          <TouchableOpacity
-            style={[styles.toggleButton, !isAdmin && styles.toggleButtonActive]}
-            onPress={() => setIsAdmin(false)}
-          >
-            <Text style={[styles.toggleText, !isAdmin && styles.toggleTextActive]}>
-              User Login
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.toggleButton, isAdmin && styles.toggleButtonActive]}
-            onPress={() => setIsAdmin(true)}
-          >
-            <Text style={[styles.toggleText, isAdmin && styles.toggleTextActive]}>
-              Admin Login
-            </Text>
-          </TouchableOpacity>
         </View>
 
         {/* Login Form */}
@@ -287,20 +239,12 @@ export default function LoginScreen() {
             )}
           </TouchableOpacity>
 
-          {!isAdmin && (
-            <>
-              <TouchableOpacity 
-                onPress={goToRegister}
-                style={styles.createAccountButton}
-              >
-                <Text style={styles.createAccountText}>Create Account</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity onPress={goToMentorLogin}>
-                <Text style={styles.mentorLinkText}>Mentor Portal →</Text>
-              </TouchableOpacity>
-            </>
-          )}
+          <TouchableOpacity 
+            onPress={goToRegister}
+            style={styles.createAccountButton}
+          >
+            <Text style={styles.createAccountText}>Create Account</Text>
+          </TouchableOpacity>
         </View>
 
         {/* Footer */}
@@ -372,30 +316,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#666',
   },
-  toggleContainer: {
-    flexDirection: 'row',
-    marginBottom: 30,
-    backgroundColor: '#111',
-    borderRadius: 8,
-    padding: 4,
-  },
-  toggleButton: {
-    flex: 1,
-    paddingVertical: 12,
-    alignItems: 'center',
-    borderRadius: 6,
-  },
-  toggleButtonActive: {
-    backgroundColor: '#00D9FF',
-  },
-  toggleText: {
-    color: '#8892b0',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  toggleTextActive: {
-    color: '#0a0e27',
-  },
   form: {
     marginBottom: 20,
   },
@@ -445,13 +365,6 @@ const styles = StyleSheet.create({
     color: '#00D9FF',
     fontSize: 16,
     fontWeight: 'bold',
-  },
-  mentorLinkText: {
-    color: '#00D9FF',
-    textAlign: 'center',
-    marginTop: 12,
-    fontSize: 14,
-    fontWeight: '600',
   },
   footer: {
     alignItems: 'center',
