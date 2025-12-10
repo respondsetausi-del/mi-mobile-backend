@@ -6062,3 +6062,104 @@ async def get_user_detailed_stats(user_id: str, current_admin = Depends(get_curr
         logger.error(f"Error fetching user stats: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+
+# ============================================================================
+# FOREX FACTORY NEWS SCRAPER - Auto-fetch news every hour
+# ============================================================================
+
+async def scrape_forex_factory_news():
+    """
+    Scrape economic calendar from Forex Factory
+    Runs every hour to get upcoming high-impact news events
+    """
+    try:
+        logger.info("Starting Forex Factory news scrape...")
+        
+        # Use the investpy or scrape ForexFactory RSS/API alternative
+        # ForexFactory blocks direct scraping, so we use an alternative source
+        
+        # Try to get data from a forex calendar API
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            # Using a free economic calendar API
+            today = datetime.utcnow().strftime("%Y-%m-%d")
+            tomorrow = (datetime.utcnow() + timedelta(days=1)).strftime("%Y-%m-%d")
+            
+            # Try multiple sources
+            news_items = []
+            
+            # Source 1: FCS API (Free Forex Calendar Service)
+            try:
+                response = await client.get(
+                    f"https://nfs.faireconomy.media/ff_calendar_thisweek.json",
+                    headers={"User-Agent": "Mozilla/5.0"}
+                )
+                if response.status_code == 200:
+                    data = response.json()
+                    for item in data:
+                        # Only get high/medium impact events
+                        if item.get("impact") in ["High", "Medium"]:
+                            news_items.append({
+                                "title": item.get("title", "Economic Event"),
+                                "currency": item.get("country", "USD"),
+                                "impact": item.get("impact", "Medium").lower(),
+                                "event_time": item.get("date", ""),
+                                "description": f"Forecast: {item.get('forecast', 'N/A')}, Previous: {item.get('previous', 'N/A')}",
+                                "source": "forex_factory_auto"
+                            })
+            except Exception as e:
+                logger.warning(f"FCS API failed: {e}")
+            
+            # If we got news items, save them to database
+            if news_items:
+                saved_count = 0
+                for news in news_items[:20]:  # Limit to 20 events
+                    # Check if this news already exists (by title and time)
+                    existing = await db.manual_news.find_one({
+                        "title": news["title"],
+                        "event_time": news["event_time"],
+                        "source": "forex_factory_auto"
+                    })
+                    
+                    if not existing:
+                        news["created_at"] = datetime.utcnow()
+                        news["created_by"] = "system_scraper"
+                        await db.manual_news.insert_one(news)
+                        saved_count += 1
+                
+                logger.info(f"Forex Factory scrape complete: {saved_count} new events saved")
+                return saved_count
+            else:
+                logger.info("No new high-impact news events found")
+                return 0
+                
+    except Exception as e:
+        logger.error(f"Error scraping Forex Factory: {str(e)}")
+        return 0
+
+# Background task to run the scraper every hour
+async def forex_news_scheduler():
+    """Run forex news scraper every hour"""
+    while True:
+        try:
+            await scrape_forex_factory_news()
+        except Exception as e:
+            logger.error(f"Scheduler error: {e}")
+        # Wait 1 hour before next scrape
+        await asyncio.sleep(3600)
+
+# Manual trigger endpoint for admin
+@api_router.post("/admin/scrape-forex-news")
+async def trigger_forex_scrape(current_admin = Depends(get_current_admin)):
+    """Manually trigger Forex Factory news scrape"""
+    try:
+        count = await scrape_forex_factory_news()
+        return {"message": f"Scrape complete", "new_events": count}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Start the scheduler on app startup
+@app.on_event("startup")
+async def start_forex_scheduler():
+    """Start the forex news scheduler on app startup"""
+    asyncio.create_task(forex_news_scheduler())
+    logger.info("Forex Factory news scheduler started - will run every hour")
