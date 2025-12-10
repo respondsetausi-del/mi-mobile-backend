@@ -45,19 +45,17 @@ export default function NewsScreen() {
         const data = await response.json();
         console.log('News data:', data);
         
-        // Filter to show only UPCOMING events (future dates)
-        const now = new Date();
-        const upcomingNews = (data.news || []).filter((item: NewsItem) => {
+        // Show all news (not just upcoming), sort by event_time descending
+        const allNews = (data.news || []).sort((a: NewsItem, b: NewsItem) => {
           try {
-            const eventDate = new Date(item.event_time);
-            return eventDate > now; // Only show future events
+            return new Date(b.event_time).getTime() - new Date(a.event_time).getTime();
           } catch (e) {
-            return false; // Skip invalid dates
+            return 0;
           }
         });
         
-        console.log('Filtered upcoming news:', upcomingNews.length);
-        setNews(upcomingNews);
+        console.log('Total news items:', allNews.length);
+        setNews(allNews);
       }
     } catch (error) {
       console.error('Error fetching news:', error);

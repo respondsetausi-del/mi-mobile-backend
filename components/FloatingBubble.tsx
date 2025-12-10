@@ -286,9 +286,15 @@ export default function FloatingBubble({
           </View>
           
           {symbol && <Text style={styles.symbolText}>{symbol}</Text>}
-          {indicator && <Text style={styles.indicatorText}>{indicator}</Text>}
+          {/* Only show indicator if it's not "Admin Signal", "Mentor Signal" or "Manual" */}
+          {indicator && !indicator.toLowerCase().includes('admin') && !indicator.toLowerCase().includes('mentor') && indicator.toLowerCase() !== 'manual' && indicator.toLowerCase() !== 'manual signal' && (
+            <Text style={styles.indicatorText}>{indicator}</Text>
+          )}
           {price > 0 && <Text style={styles.priceText}>Price: ${price.toFixed(5)}</Text>}
-          {candle_pattern && <Text style={styles.candlePatternText}>📊 {candle_pattern}</Text>}
+          {/* Only show candle pattern if it's not about admin/mentor */}
+          {candle_pattern && !candle_pattern.toLowerCase().includes('admin') && !candle_pattern.toLowerCase().includes('mentor') && (
+            <Text style={styles.candlePatternText}>📊 {candle_pattern}</Text>
+          )}
           
           <Text style={styles.dragHint}>Tap to close • Drag to move</Text>
         </View>
