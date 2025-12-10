@@ -5245,7 +5245,7 @@ async def get_user_news(current_user = Depends(get_current_user)):
         # Combine manual news with live calendar
         formatted_news = []
         
-        # Add manual news first (from mentor/admin) - only upcoming
+        # Add ALL manual news (from mentor/admin) - no date filtering
         for item in manual_news_list:
             # Check if event has a datetime and if it's in the future
             event_datetime_str = item.get("event_time")
