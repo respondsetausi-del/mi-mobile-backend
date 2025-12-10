@@ -3,12 +3,18 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Animated, ActivityIndicator, Platform } from 'react-native';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { initializeBackgroundServices } from '../services/BackgroundService';
 
 function RootLayoutNav() {
   const [showSplash, setShowSplash] = useState(true);
   const fadeAnim = new Animated.Value(0);
 
   useEffect(() => {
+    // Initialize background services
+    initializeBackgroundServices().then((result) => {
+      console.log('Background services initialized:', result);
+    });
+
     Animated.timing(fadeAnim, {
       toValue: 1,
       duration: 1000,

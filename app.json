@@ -34,10 +34,13 @@
         "android.permission.USE_EXACT_ALARM",
         "android.permission.FOREGROUND_SERVICE_DATA_SYNC",
         "android.permission.INTERNET",
-        "android.permission.ACCESS_NETWORK_STATE"
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        "android.permission.ACTION_MANAGE_OVERLAY_PERMISSION"
       ],
       "package": "com.mimobile.indicator.fixed",
-      "useNextNotificationsApi": true
+      "useNextNotificationsApi": true,
+      "allowBackup": true
     },
     "web": {
       "bundler": "metro"
@@ -52,6 +55,8 @@
     },
     "plugins": [
       "expo-router",
+      "expo-task-manager",
+      "expo-background-fetch",
       [
         "expo-splash-screen",
         {
