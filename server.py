@@ -5245,19 +5245,10 @@ async def get_user_news(current_user = Depends(get_current_user)):
         # Combine manual news with live calendar
         formatted_news = []
         
-        # Add manual news first (from mentor/admin) - only upcoming
+        # Add ALL manual news (from mentor/admin) - no date filtering
         for item in manual_news_list:
-            # Check if event has a datetime and if it's in the future
+            # Check if event has a datetime - include all events now (no filtering)
             event_datetime_str = item.get("event_time")
-            if event_datetime_str:
-                try:
-                    # Parse the event datetime
-                    event_dt = datetime.fromisoformat(event_datetime_str.replace('Z', '+00:00')) if isinstance(event_datetime_str, str) else event_datetime_str
-                    # Skip if event is in the past
-                    if event_dt < now:
-                        continue
-                except:
-                    pass  # If parsing fails, include the news item
             
             news_item = {
                 "id": str(item["_id"]),
