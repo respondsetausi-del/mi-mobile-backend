@@ -5284,19 +5284,8 @@ async def get_user_news(current_user = Depends(get_current_user)):
             
             formatted_news.append(news_item)
         
-        # Add live economic calendar events with mentor signals - only upcoming
+        # Add live economic calendar events with mentor signals - show ALL (past and upcoming)
         for event in live_news:
-            # Check if event is in the future
-            event_datetime_str = event.get("event_datetime")
-            if event_datetime_str:
-                try:
-                    event_dt = datetime.fromisoformat(event_datetime_str.replace('Z', '+00:00'))
-                    # Skip if event is in the past
-                    if event_dt < now:
-                        continue
-                except:
-                    pass  # If parsing fails, include the event
-            
             event_id = event.get("id")
             if event_id in mentor_signals:
                 event["signal"] = mentor_signals[event_id]
