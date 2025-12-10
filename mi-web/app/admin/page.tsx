@@ -16,16 +16,19 @@ export default function AdminDashboard() {
 
   const loadData = async () => {
     try {
-      // Fetch users and mentors to calculate stats
-      const [usersRes, mentorsRes, licensesRes] = await Promise.all([
+      // Fetch users, mentors, and licenses
+      const [usersData, mentorsData, licensesData] = await Promise.all([
         apiGet('/admin/users'),
-        apiGet('/admin/mentors').catch(() => ({ mentors: [] })),
-        apiGet('/admin/licenses').catch(() => ({ licenses: [] }))
+        apiGet('/admin/mentors').catch(() => []),
+        apiGet('/admin/licenses').catch(() => [])
       ])
 
-      const users = usersRes.users || []
-      const mentors = mentorsRes.mentors || []
-      const licenses = licensesRes.licenses || []
+      // Handle different response formats
+      const users = usersData?.users || usersData || []
+      const mentors = Array.isArray(mentorsData) ? mentorsData : (mentorsData?.mentors || [])
+      const licenses = Array.isArray(licensesData) ? licensesData : (licensesData?.licenses || [])
+
+      console.log('Users:', users.length, 'Mentors:', mentors.length, 'Licenses:', licenses.length)
 
       // Calculate stats from actual data
       const calculatedStats = {
@@ -41,10 +44,10 @@ export default function AdminDashboard() {
         },
         license_stats: {
           total: licenses.length,
-          used: licenses.filter((l: any) => l.status === 'used').length,
+          used: licenses.filter((l: any) => l.used === true).length,
         },
         revenue_stats: {
-          total_revenue: users.filter((u: any) => u.payment_status === 'paid').length * 99,
+          total_revenue: 0, // Reset to $0 as requested
         }
       }
 
