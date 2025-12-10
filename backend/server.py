@@ -4995,24 +4995,23 @@ async def create_mentor_news(news: MarketNews, current_mentor = Depends(get_curr
 @api_router.get("/admin/news")
 async def get_admin_news(current_admin = Depends(get_current_admin)):
     """
-    Get all manual news for admin to view
+    Get ALL news for admin to view (manual + scraped + live API)
     """
     try:
-        # Get all manual news (from any source)
-        news_cursor = db.manual_news.find({
-            "status": "active"
-        }).sort("created_at", -1).limit(50)
+        # Get manual news from database (admin/mentor sent)
+        news_cursor = db.manual_news.find({}).sort("created_at", -1).limit(50)
         manual_news_list = await news_cursor.to_list(length=50)
         
-        # Format news with optional fields
+        # Format manual news
         formatted_news = []
         for item in manual_news_list:
             news_item = {
                 "id": str(item["_id"]),
                 "title": item["title"],
-                "sender_type": item.get("sender_type", "unknown"),
+                "sender_type": item.get("sender_type", "system_scraper" if item.get("source") == "forex_factory_auto" else "unknown"),
                 "sender_email": item.get("sender_email", ""),
-                "created_at": item["created_at"].isoformat(),
+                "created_at": item["created_at"].isoformat() if item.get("created_at") else "",
+                "source": item.get("source", "manual")
             }
             
             # Add optional fields if they exist
@@ -5031,7 +5030,20 @@ async def get_admin_news(current_admin = Depends(get_current_admin)):
             
             formatted_news.append(news_item)
         
-        return {"news": formatted_news}
+        # Get live economic calendar (ForexFactory + FMP API fallback)
+        try:
+            live_events = await fetch_live_economic_calendar()
+            if live_events:
+                logger.info(f"✅ Adding {len(live_events)} live events to admin news")
+                formatted_news.extend(live_events)
+        except Exception as e:
+            logger.warning(f"Failed to fetch live calendar for admin: {str(e)}")
+        
+        # Sort by created_at/event_time (most recent first)
+        formatted_news.sort(key=lambda x: x.get("created_at", x.get("event_datetime", "")), reverse=True)
+        
+        # Limit to 100 total news items
+        return {"news": formatted_news[:100]}
         
     except Exception as e:
         logger.error(f"Error fetching admin news: {str(e)}")
