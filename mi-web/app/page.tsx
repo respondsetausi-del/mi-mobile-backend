@@ -140,6 +140,21 @@ export default function Login() {
               )}
             </button>
           </form>
+
+          {/* Apply as Mentor Link */}
+          {role === 'mentor' && (
+            <div className="mt-4 text-center">
+              <p className="text-sm text-gray-600">
+                Don't have an account?{' '}
+                <button
+                  onClick={() => router.push('/apply-mentor')}
+                  className="text-purple-600 hover:text-purple-700 font-medium"
+                >
+                  Apply as Mentor
+                </button>
+              </p>
+            </div>
+          )}
         </div>
 
         <p className="text-center text-gray-400 text-sm mt-6">
