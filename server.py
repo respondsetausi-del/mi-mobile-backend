@@ -5350,8 +5350,8 @@ async def get_upcoming_news_alerts(current_user = Depends(get_current_user)):
 
 async def fetch_live_economic_calendar():
     """
-    Fetch live financial/market news using Financial Modeling Prep API
-    Falls back to mock data if API fails
+    Fetch live financial/market news using multiple free APIs with fallback
+    Priority: ForexFactory JSON -> FMP API -> Mock Data
     Returns relevant trading news and market events for the next 7 days
     """
     try:
@@ -5361,16 +5361,57 @@ async def fetch_live_economic_calendar():
         now = datetime.utcnow()
         max_future_date = now + timedelta(days=7)  # Maximum 1 week forecast
         
-        # Try to fetch from FMP API first
-        url = "https://financialmodelingprep.com/api/v3/stock_news"
-        params = {
-            "limit": 50,
-            "apikey": "demo"  # Demo key for testing
-        }
+        # Try Source 1: Forex Factory Economic Calendar (Free, No Auth Required)
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                response = await client.get(
+                    "https://nfs.faireconomy.media/ff_calendar_thisweek.json",
+                    headers={"User-Agent": "Mozilla/5.0"}
+                )
+                
+                if response.status_code == 200:
+                    ff_data = response.json()
+                    formatted_events = []
+                    
+                    for item in ff_data[:30]:  # Limit to 30 items
+                        try:
+                            # ForexFactory specific parsing
+                            event_date = item.get("date", "")
+                            impact = item.get("impact", "Medium")
+                            
+                            # Skip low impact events
+                            if impact == "Low":
+                                continue
+                            
+                            formatted_events.append({
+                                "id": f"ff_{item.get('title', '').replace(' ', '_')}_{event_date}",
+                                "title": item.get("title", "Economic Event")[:100],
+                                "event_time": event_date,
+                                "event_datetime": event_date,
+                                "currency": item.get("country", "USD")[:10],
+                                "impact": impact,
+                                "signal": None,
+                                "created_at": datetime.utcnow().isoformat(),
+                                "source": "forex_factory",
+                                "description": f"Forecast: {item.get('forecast', 'N/A')}, Previous: {item.get('previous', 'N/A')}"
+                            })
+                        except Exception as e:
+                            logger.error(f"Error parsing ForexFactory item: {str(e)}")
+                            continue
+                    
+                    if formatted_events:
+                        logger.info(f"✅ Fetched {len(formatted_events)} events from ForexFactory")
+                        return formatted_events
+        except Exception as ff_error:
+            logger.warning(f"ForexFactory API failed: {str(ff_error)}")
         
+        # Try Source 2: FMP API (fallback)
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(url, params=params)
+                response = await client.get(
+                    "https://financialmodelingprep.com/api/v3/stock_news",
+                    params={"limit": 50, "apikey": "demo"}
+                )
                 
                 if response.status_code == 200:
                     news_items = response.json()
@@ -5419,7 +5460,7 @@ async def fetch_live_economic_calendar():
                             continue
                     
                     if formatted_events:
-                        logger.info(f"Fetched {len(formatted_events)} market news events from FMP")
+                        logger.info(f"✅ Fetched {len(formatted_events)} market news events from FMP")
                         return formatted_events
                 else:
                     logger.warning(f"FMP API returned {response.status_code}")
