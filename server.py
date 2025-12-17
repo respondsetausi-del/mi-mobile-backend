@@ -1813,7 +1813,10 @@ async def get_admin_stats(current_admin = Depends(get_current_admin)):
     }
 
 @api_router.post("/admin/licenses/generate")
-async def generate_licenses(count: int, current_admin = Depends(get_current_admin)):
+async def generate_licenses(
+    count: int = Body(..., embed=True),
+    current_admin = Depends(get_current_admin)
+):
     """Generate new license keys (admin only)"""
     try:
         if count <= 0 or count > 1000:
@@ -1841,7 +1844,14 @@ async def generate_licenses(count: int, current_admin = Depends(get_current_admi
 async def get_all_licenses(current_admin = Depends(get_current_admin)):
     """Get all license keys (admin only)"""
     licenses = await db.licenses.find().sort("created_at", -1).to_list(1000)
-    return [serialize_doc(license) for license in licenses]
+    formatted_licenses = []
+    for license in licenses:
+        license_data = serialize_doc(license)
+        # Add status field for compatibility
+        if 'status' not in license_data:
+            license_data['status'] = 'used' if license_data.get('used') else 'unused'
+        formatted_licenses.append(license_data)
+    return {"licenses": formatted_licenses}
 
 @api_router.delete("/admin/licenses/{license_key}")
 async def delete_license(license_key: str, current_admin = Depends(get_current_admin)):
