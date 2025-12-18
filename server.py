@@ -378,6 +378,66 @@ async def health_check():
         "database": "connected"
     }
 
+
+@api_router.get("/market-status")
+async def get_market_status():
+    """
+    Get market data status and monitoring configuration.
+    Shows which data sources are active and timeframe monitoring intervals.
+    """
+    # Timeframe monitoring intervals (in minutes)
+    timeframe_intervals = {
+        "1min": 1,      # Check every 1 minute
+        "5min": 5,      # Check every 5 minutes
+        "15min": 10,    # Check every 10 minutes
+        "30min": 20,    # Check every 20 minutes
+        "1h": 45,       # Check every 45 minutes
+        "4h": 60,       # Check every 60 minutes
+        "1d": 240,      # Check every 4 hours
+    }
+    
+    # Test market data sources
+    finnhub_status = "demo"
+    twelve_data_status = "inactive"
+    
+    finnhub_key = os.getenv('FINNHUB_API_KEY', 'demo')
+    twelve_data_key = os.getenv('TWELVE_DATA_API_KEY', '')
+    
+    if finnhub_key and finnhub_key != 'demo':
+        finnhub_status = "active"
+    
+    if twelve_data_key and twelve_data_key != '':
+        twelve_data_status = "active"
+    
+    # Get a sample quote to show data source
+    sample_quotes = await get_quotes(category="forex")
+    sample_source = sample_quotes[0]["source"] if sample_quotes else "unknown"
+    
+    return {
+        "status": "operational",
+        "timestamp": datetime.utcnow().isoformat(),
+        "market_data": {
+            "finnhub_api": finnhub_status,
+            "twelve_data_api": twelve_data_status,
+            "coingecko_api": "active (free)",
+            "current_source": sample_source,
+            "note": "If 'simulated', add FINNHUB_API_KEY to .env for real forex data"
+        },
+        "timeframe_monitoring": {
+            "description": "Each timeframe is monitored at different intervals",
+            "intervals": timeframe_intervals
+        },
+        "available_symbols": {
+            "forex": ["EUR/USD", "GBP/USD", "USD/JPY", "AUD/USD", "USD/CAD", "NZD/USD", "USD/CHF", "EUR/GBP"],
+            "crypto": ["BTC/USD", "ETH/USD", "BNB/USD", "XRP/USD", "ADA/USD", "SOL/USD"],
+            "metals": ["XAU/USD", "XAG/USD", "XPT/USD", "XPD/USD"],
+            "indices": ["US30", "SPX500", "NAS100", "UK100", "GER40", "JPN225"]
+        },
+        "available_indicators": ["RSI", "MACD", "SMA", "EMA", "BOLLINGER_BANDS", "STOCHASTIC"]
+    }
+
+
+
 @api_router.post("/initialize-database", response_model=dict)
 async def initialize_database():
     """

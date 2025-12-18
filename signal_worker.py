@@ -1,6 +1,13 @@
 """
 Background Worker for Automatic Signal Generation
 Runs periodically to check indicator conditions and generate signals
+Each timeframe has its own monitoring interval:
+- 1min  -> check every 1 minute
+- 5min  -> check every 5 minutes
+- 15min -> check every 10 minutes
+- 30min -> check every 20 minutes
+- 1h    -> check every 45 minutes
+- 4h    -> check every 60 minutes
 """
 import asyncio
 import logging
@@ -17,6 +24,27 @@ load_dotenv()
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Timeframe monitoring intervals (in minutes)
+TIMEFRAME_INTERVALS = {
+    "1min": 1,      # Check every 1 minute
+    "1m": 1,
+    "5min": 5,      # Check every 5 minutes
+    "5m": 5,
+    "15min": 10,    # Check every 10 minutes
+    "15m": 10,
+    "30min": 20,    # Check every 20 minutes
+    "30m": 20,
+    "1h": 45,       # Check every 45 minutes
+    "1H": 45,
+    "H1": 45,
+    "4h": 60,       # Check every 60 minutes
+    "4H": 60,
+    "H4": 60,
+    "1d": 240,      # Check every 4 hours
+    "1D": 240,
+    "D1": 240,
+}
 
 # Database connection
 MONGO_URL = os.getenv("MONGO_URL", "mongodb://localhost:27017")
@@ -62,17 +90,42 @@ async def fetch_market_data(symbol: str, timeframe: str, bars: int = 100) -> dic
         return None
 
 
+def get_check_interval(timeframe: str) -> int:
+    """
+    Get the monitoring interval in minutes for a given timeframe
+    """
+    return TIMEFRAME_INTERVALS.get(timeframe, 5)  # Default to 5 minutes
+
+
+async def should_check_timeframe(subscription: dict) -> bool:
+    """
+    Check if it's time to monitor this subscription based on its timeframe
+    """
+    timeframe = subscription.get("user_selected_timeframe", "15min")
+    last_check_time = subscription.get("last_check_time")
+    
+    if not last_check_time:
+        return True
+    
+    interval_minutes = get_check_interval(timeframe)
+    time_since_last = datetime.utcnow() - last_check_time
+    
+    return time_since_last >= timedelta(minutes=interval_minutes)
+
+
 async def should_generate_signal(subscription: dict) -> bool:
     """
     Check if enough time has passed since last signal (cooldown period)
+    Cooldown is based on the timeframe's monitoring interval
     """
     last_signal_time = subscription.get("last_signal_time")
     
     if not last_signal_time:
         return True
     
-    # 15 minute cooldown
-    cooldown_minutes = 15
+    # Cooldown is 2x the monitoring interval for the timeframe
+    timeframe = subscription.get("user_selected_timeframe", "15min")
+    cooldown_minutes = get_check_interval(timeframe) * 2
     time_since_last = datetime.utcnow() - last_signal_time
     
     return time_since_last > timedelta(minutes=cooldown_minutes)
@@ -160,22 +213,35 @@ async def send_push_notification(user_id: str, indicator_name: str, signal_type:
 async def process_subscription(subscription: dict):
     """
     Process a single subscription:
-    1. Fetch market data for user's selected symbol
-    2. Get indicator configuration
-    3. Evaluate conditions
-    4. Generate signal if conditions met
+    1. Check if it's time to monitor based on timeframe interval
+    2. Fetch market data for user's selected symbol
+    3. Get indicator configuration
+    4. Evaluate conditions
+    5. Generate signal if conditions met
     """
     try:
         subscription_id = str(subscription["_id"])
         indicator_id = subscription["indicator_id"]
         symbol = subscription["user_selected_symbol"]
         timeframe = subscription["user_selected_timeframe"]
+        interval = get_check_interval(timeframe)
         
-        logger.info(f"🔍 Processing subscription {subscription_id} for {symbol}")
+        # Check if it's time to monitor this timeframe
+        if not await should_check_timeframe(subscription):
+            logger.debug(f"⏰ Not yet time to check {timeframe} for {symbol} (interval: {interval}min)")
+            return
         
-        # Check cooldown
+        logger.info(f"🔍 Processing {timeframe} subscription {subscription_id} for {symbol} (interval: {interval}min)")
+        
+        # Update last check time
+        await db.user_indicator_subscriptions.update_one(
+            {"_id": subscription["_id"]},
+            {"$set": {"last_check_time": datetime.utcnow()}}
+        )
+        
+        # Check cooldown for signal generation
         if not await should_generate_signal(subscription):
-            logger.info(f"⏳ Cooldown active for subscription {subscription_id}, skipping")
+            logger.info(f"⏳ Signal cooldown active for subscription {subscription_id}, skipping signal generation")
             return
         
         # Get indicator configuration
@@ -244,19 +310,31 @@ async def run_worker_cycle():
         logger.error(f"Error in worker cycle: {e}")
 
 
-async def run_worker(interval_minutes: int = 5):
+async def run_worker(base_interval_seconds: int = 60):
     """
-    Run the worker continuously with specified interval
+    Run the worker continuously with 1-minute base interval.
+    Each subscription is checked based on its timeframe's interval.
+    
+    Timeframe intervals:
+    - 1min  -> every 1 minute
+    - 5min  -> every 5 minutes
+    - 15min -> every 10 minutes
+    - 30min -> every 20 minutes
+    - 1h    -> every 45 minutes
+    - 4h    -> every 60 minutes
     """
-    logger.info(f"🚀 Signal Worker started (interval: {interval_minutes} minutes)")
+    logger.info("🚀 Signal Worker started with timeframe-based intervals")
+    logger.info("📊 Monitoring intervals:")
+    for tf, interval in sorted(TIMEFRAME_INTERVALS.items(), key=lambda x: x[1]):
+        logger.info(f"   {tf}: every {interval} minutes")
     
     while True:
         try:
             await run_worker_cycle()
             
-            # Wait for next cycle
-            logger.info(f"💤 Sleeping for {interval_minutes} minutes...")
-            await asyncio.sleep(interval_minutes * 60)
+            # Base interval of 1 minute - individual timeframes checked based on their intervals
+            logger.info(f"💤 Base cycle sleeping for {base_interval_seconds} seconds...")
+            await asyncio.sleep(base_interval_seconds)
             
         except Exception as e:
             logger.error(f"Worker error: {e}")
@@ -264,5 +342,5 @@ async def run_worker(interval_minutes: int = 5):
 
 
 if __name__ == "__main__":
-    # Run the worker
-    asyncio.run(run_worker(interval_minutes=5))
+    # Run the worker with 1 minute base interval
+    asyncio.run(run_worker(base_interval_seconds=60))
