@@ -3172,6 +3172,80 @@ class PaymentStatusResponse(BaseModel):
 # Initialize Stripe client
 stripe_api_key = os.getenv("STRIPE_API_KEY")
 
+@api_router.post("/payment/create-intent")
+async def create_payment_intent(
+    user: dict = Depends(get_current_user_for_payment)
+):
+    """
+    Create a Stripe Payment Intent for native mobile payment (in-app card collection).
+    User price: $35 USD
+    """
+    try:
+        import stripe
+        stripe.api_key = stripe_api_key
+        
+        user_id = user['_id']
+        user_email = user.get('email', '')
+        
+        # Check if user already paid
+        if user.get('payment_status') == 'paid':
+            raise HTTPException(status_code=400, detail="Payment already completed for this user")
+        
+        existing_payment = await db.payment_transactions.find_one({
+            "user_id": str(user_id),
+            "payment_status": "paid"
+        })
+        
+        if existing_payment:
+            raise HTTPException(status_code=400, detail="Payment already completed for this user")
+        
+        # Create Payment Intent
+        amount = 3500  # $35.00 in cents
+        payment_intent = stripe.PaymentIntent.create(
+            amount=amount,
+            currency='usd',
+            payment_method_types=['card'],
+            metadata={
+                'user_id': str(user_id),
+                'user_email': user_email,
+                'product': 'lifetime_access'
+            }
+        )
+        
+        # Store transaction in database
+        transaction_data = {
+            "payment_intent_id": payment_intent.id,
+            "user_id": str(user_id),
+            "user_email": user_email,
+            "amount": 35.00,
+            "currency": "usd",
+            "payment_status": "pending",
+            "stripe_status": "requires_payment_method",
+            "metadata": {
+                "user_id": str(user_id),
+                "user_email": user_email,
+                "product": "lifetime_access"
+            },
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        
+        await db.payment_transactions.insert_one(transaction_data)
+        
+        logger.info(f"Payment Intent created for user {user_id}: {payment_intent.id}")
+        
+        return {
+            "client_secret": payment_intent.client_secret,
+            "payment_intent_id": payment_intent.id,
+            "customer_email": user_email
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating payment intent: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Payment creation failed: {str(e)}")
+
 @api_router.post("/payment/create-checkout")
 async def create_payment_checkout(
     request: CreateCheckoutRequest,
