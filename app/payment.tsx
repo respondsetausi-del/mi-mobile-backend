@@ -15,7 +15,11 @@ import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
 
 const BACKEND_URL = Constants.expoConfig?.extra?.backendUrl || Constants.expoConfig?.extra?.EXPO_PUBLIC_BACKEND_URL || '';
-const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+const STRIPE_PUBLISHABLE_KEY = Constants.expoConfig?.extra?.STRIPE_PUBLISHABLE_KEY || process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY || '';
+
+// Debug logging
+console.log('Payment Screen - Stripe Key:', STRIPE_PUBLISHABLE_KEY ? `${STRIPE_PUBLISHABLE_KEY.substring(0, 20)}...` : 'NOT SET');
+console.log('Payment Screen - Backend URL:', BACKEND_URL);
 
 function PaymentContent() {
   const router = useRouter();

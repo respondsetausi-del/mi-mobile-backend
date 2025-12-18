@@ -47,6 +47,7 @@
     },
     "extra": {
       "EXPO_PUBLIC_BACKEND_URL": "https://mi-mobile-backend-1.onrender.com",
+      "STRIPE_PUBLISHABLE_KEY": "pk_live_QDLoCyh7AoTRKWWBPLI0AkzL00GUgDLwVF",
       "eas": {
         "projectId": "cad81038-6e38-48e6-8fa9-ceb277ce265d"
       },
