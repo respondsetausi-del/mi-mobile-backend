@@ -1921,6 +1921,57 @@ async def delete_license(license_key: str, current_admin = Depends(get_current_a
         raise HTTPException(status_code=404, detail="License key not found")
     return {"message": "License deleted successfully"}
 
+
+@api_router.post("/admin/licenses/reactivate")
+async def reactivate_license(
+    license_key: str = Body(..., embed=True),
+    current_admin = Depends(get_current_admin)
+):
+    """Reactivate a used license key (admin only) - makes it available again"""
+    # Find the license
+    license = await db.licenses.find_one({"key": license_key.upper().strip()})
+    
+    if not license:
+        raise HTTPException(status_code=404, detail="License key not found")
+    
+    if license.get("status") != "used":
+        return {"message": "License is already available", "status": "available"}
+    
+    # Get the user who had this license
+    old_user_email = license.get("assigned_to")
+    
+    # Update the license to be available again
+    result = await db.licenses.update_one(
+        {"key": license_key.upper().strip()},
+        {
+            "$set": {
+                "status": "available",
+                "assigned_to": None,
+                "reactivated_at": datetime.utcnow(),
+                "reactivated_by": "admin",
+                "previous_user": old_user_email
+            }
+        }
+    )
+    
+    if result.modified_count > 0:
+        # Optionally update the user who had this license
+        if old_user_email:
+            await db.users.update_one(
+                {"license_key": license_key.upper().strip()},
+                {"$set": {"license_key": None, "status": "pending", "payment_status": "unpaid"}}
+            )
+        
+        return {
+            "message": f"License key {license_key} has been reactivated",
+            "status": "available",
+            "previous_user": old_user_email
+        }
+    else:
+        raise HTTPException(status_code=500, detail="Failed to reactivate license")
+
+
+
 # Duplicate delete_user endpoint removed - see line 1039 for the complete implementation
 
 @api_router.post("/admin/users/{user_id}/activate")
@@ -2373,6 +2424,38 @@ async def activate_mentor(mentor_db_id: str, current_admin = Depends(get_current
     except Exception as e:
         logger.error(f"Error activating mentor: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to activate mentor: {str(e)}")
+
+
+@api_router.put("/admin/mentors/{mentor_db_id}/max-users")
+async def update_mentor_max_users(
+    mentor_db_id: str, 
+    max_users: int = Body(..., embed=True),
+    current_admin = Depends(get_current_admin)
+):
+    """Update a mentor's max users limit (admin only)"""
+    from bson import ObjectId
+    
+    if max_users < 1:
+        raise HTTPException(status_code=400, detail="Max users must be at least 1")
+    
+    if max_users > 10000:
+        raise HTTPException(status_code=400, detail="Max users cannot exceed 10000")
+    
+    try:
+        result = await db.mentors.update_one(
+            {"_id": ObjectId(mentor_db_id)},
+            {"$set": {"max_users": max_users, "updated_at": datetime.utcnow()}}
+        )
+        
+        if result.modified_count > 0:
+            return {"message": f"Max users updated to {max_users}", "max_users": max_users}
+        else:
+            raise HTTPException(status_code=404, detail="Mentor not found")
+    except Exception as e:
+        logger.error(f"Error updating mentor max users: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to update max users: {str(e)}")
+
+
 
 @api_router.post("/admin/mentors/create")
 async def create_mentor(current_admin = Depends(get_current_admin)):
