@@ -1928,25 +1928,34 @@ async def reactivate_license(
     current_admin = Depends(get_current_admin)
 ):
     """Reactivate a used license key (admin only) - makes it available again"""
+    logger.info(f"Reactivate license request for key: {license_key}")
+    
     # Find the license
-    license = await db.licenses.find_one({"key": license_key.upper().strip()})
+    clean_key = license_key.upper().strip()
+    license = await db.licenses.find_one({"key": clean_key})
     
     if not license:
+        logger.error(f"License not found: {clean_key}")
         raise HTTPException(status_code=404, detail="License key not found")
+    
+    logger.info(f"Found license: status={license.get('status')}, used={license.get('used')}")
     
     # Check if license is used (either by status or used field)
     is_used = license.get("status") == "used" or license.get("used") == True
     
     if not is_used:
+        logger.info(f"License {clean_key} is already available")
         return {"message": "License is already available", "status": "available"}
     
     # Get the user who had this license
     old_user_email = license.get("assigned_to") or license.get("user_email")
     old_user_id = license.get("used_by")
     
+    logger.info(f"Reactivating license {clean_key}, previous user: {old_user_email}")
+    
     # Update the license to be available again - reset ALL relevant fields
     result = await db.licenses.update_one(
-        {"key": license_key.upper().strip()},
+        {"key": clean_key},
         {
             "$set": {
                 "status": "available",
@@ -1963,6 +1972,8 @@ async def reactivate_license(
         }
     )
     
+    logger.info(f"Update result: modified_count={result.modified_count}")
+    
     if result.modified_count > 0:
         # Update the user who had this license - remove their license and reset status
         if old_user_id:
@@ -1976,12 +1987,14 @@ async def reactivate_license(
                 {"$set": {"license_key": None, "status": "pending", "payment_status": "unpaid"}}
             )
         
+        logger.info(f"License {clean_key} reactivated successfully")
         return {
             "message": f"License key {license_key} has been reactivated",
             "status": "available",
             "previous_user": old_user_email
         }
     else:
+        logger.error(f"Failed to reactivate license {clean_key}")
         raise HTTPException(status_code=500, detail="Failed to reactivate license")
 
 
