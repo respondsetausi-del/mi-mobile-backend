@@ -6453,3 +6453,152 @@ async def start_forex_scheduler():
     """Start the forex news scheduler on app startup"""
     asyncio.create_task(forex_news_scheduler())
     logger.info("Forex Factory news scheduler started - will run every hour")
+
+@app.on_event("startup")
+async def start_signal_monitor():
+    """Start the background signal monitor for push notifications"""
+    asyncio.create_task(signal_monitor_loop())
+    logger.info("🔄 Signal monitor started - checking for signal changes")
+
+async def signal_monitor_loop():
+    """
+    Background loop that monitors active EAs and sends push notifications when signals change.
+    This ensures users get notifications even when the app is closed.
+    """
+    while True:
+        try:
+            # Find all active EAs being monitored
+            active_eas = await db.eas.find({"status": "active"}).to_list(100)
+            
+            for ea in active_eas:
+                try:
+                    ea_id = str(ea["_id"])
+                    user_id = str(ea.get("user_id", ""))
+                    symbol = ea.get("config", {}).get("symbol", "")
+                    indicator_type = ea.get("config", {}).get("indicator", {}).get("type", "")
+                    
+                    if not symbol:
+                        continue
+                    
+                    # Calculate current signal
+                    try:
+                        history = market_simulator.get_price_history(symbol, 200)
+                        if not history:
+                            continue
+                        
+                        prices = [h["close"] for h in history]
+                        indicator_config = ea.get("config", {}).get("indicator", {})
+                        
+                        # Calculate signal based on indicator
+                        current_signal = "NEUTRAL"
+                        if indicator_type == "RSI":
+                            period = indicator_config.get("period", 14)
+                            rsi = indicators.calculate_rsi(prices, period)
+                            overbought = indicator_config.get("overbought", 70)
+                            oversold = indicator_config.get("oversold", 30)
+                            if rsi <= oversold:
+                                current_signal = "BUY"
+                            elif rsi >= overbought:
+                                current_signal = "SELL"
+                        elif indicator_type == "MACD":
+                            fast = indicator_config.get("fast_period", 12)
+                            slow = indicator_config.get("slow_period", 26)
+                            signal_period = indicator_config.get("signal_period", 9)
+                            macd = indicators.calculate_macd(prices, fast, slow, signal_period)
+                            if macd and macd.get("macd_line", 0) > macd.get("signal_line", 0):
+                                current_signal = "BUY"
+                            elif macd and macd.get("macd_line", 0) < macd.get("signal_line", 0):
+                                current_signal = "SELL"
+                        
+                        # Check if signal changed
+                        previous_signal = ea.get("current_signal", "NEUTRAL")
+                        
+                        if current_signal != previous_signal and current_signal != "NEUTRAL":
+                            # Signal changed! Update EA and send notification
+                            current_price = prices[-1] if prices else 0
+                            
+                            await db.eas.update_one(
+                                {"_id": ea["_id"]},
+                                {
+                                    "$set": {
+                                        "current_signal": current_signal,
+                                        "last_price": current_price,
+                                        "last_signal_time": datetime.utcnow()
+                                    }
+                                }
+                            )
+                            
+                            # Send push notification
+                            if user_id:
+                                await send_signal_notification_to_user(user_id, ea, current_signal, current_price)
+                                logger.info(f"📱 Signal changed for EA {ea_id}: {previous_signal} -> {current_signal}")
+                    
+                    except Exception as e:
+                        logger.error(f"Error calculating signal for EA {ea_id}: {e}")
+                        
+                except Exception as e:
+                    logger.error(f"Error processing EA: {e}")
+            
+            # Wait 30 seconds before next check
+            await asyncio.sleep(30)
+            
+        except Exception as e:
+            logger.error(f"Signal monitor error: {e}")
+            await asyncio.sleep(60)
+
+async def send_signal_notification_to_user(user_id: str, ea: dict, signal: str, price: float):
+    """Send push notification to specific user when their EA signal changes"""
+    try:
+        # Get user's push tokens
+        tokens = await db.push_tokens.find({"user_id": user_id}).to_list(10)
+        
+        if not tokens:
+            logger.info(f"No push tokens for user {user_id}")
+            return
+        
+        symbol = ea.get("config", {}).get("symbol", "Unknown")
+        indicator = ea.get("config", {}).get("indicator", {}).get("type", "Unknown")
+        
+        emoji = "🟢" if signal == "BUY" else "🔴"
+        title = f"{emoji} {signal} Signal - {symbol}"
+        body = f"{indicator} detected a {signal} opportunity at {price:.5f}"
+        
+        messages = []
+        for token_doc in tokens:
+            push_token = token_doc.get("token", "")
+            if push_token and push_token.startswith("ExponentPushToken"):
+                messages.append({
+                    "to": push_token,
+                    "sound": "default",
+                    "title": title,
+                    "body": body,
+                    "data": {
+                        "ea_id": str(ea["_id"]),
+                        "signal": signal,
+                        "symbol": symbol,
+                        "price": price,
+                        "type": "signal_change"
+                    },
+                    "priority": "high",
+                    "channelId": "signals"
+                })
+        
+        if messages:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    'https://exp.host/--/api/v2/push/send',
+                    json=messages,
+                    headers={
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json',
+                    },
+                    timeout=10.0
+                )
+                if response.status_code == 200:
+                    logger.info(f"✅ Push sent to user {user_id}: {signal} on {symbol}")
+                else:
+                    logger.error(f"Push failed: {response.status_code}")
+                    
+    except Exception as e:
+        logger.error(f"Error sending notification to user: {e}")
+

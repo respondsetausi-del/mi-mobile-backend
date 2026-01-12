@@ -192,9 +192,11 @@ async def create_signal_for_subscription(subscription: dict, signal_type: str, i
 
 async def send_push_notification(user_id: str, indicator_name: str, signal_type: str, symbol: str):
     """
-    Send push notification to user
+    Send push notification to user via Expo Push Notification Service
     """
     try:
+        import httpx
+        
         # Get user's push tokens
         tokens = await db.push_tokens.find({"user_id": user_id}).to_list(100)
         
@@ -202,9 +204,48 @@ async def send_push_notification(user_id: str, indicator_name: str, signal_type:
             logger.info(f"No push tokens found for user {user_id}")
             return
         
-        # In production, integrate with Expo push notification service
-        # For now, just log
-        logger.info(f"📱 Would send push: {indicator_name} - {signal_type} on {symbol} to user {user_id}")
+        # Prepare notification messages
+        emoji = "📈" if signal_type == "BUY" else "📉"
+        messages = []
+        
+        for token_doc in tokens:
+            push_token = token_doc.get("token")
+            if push_token and push_token.startswith("ExponentPushToken"):
+                messages.append({
+                    "to": push_token,
+                    "sound": "default",
+                    "title": f"{emoji} {signal_type} Signal - {symbol}",
+                    "body": f"{indicator_name} detected a {signal_type} opportunity on {symbol}",
+                    "data": {
+                        "signal": signal_type,
+                        "symbol": symbol,
+                        "indicator": indicator_name,
+                        "type": "signal"
+                    },
+                    "priority": "high",
+                    "channelId": "signals"
+                })
+        
+        if not messages:
+            logger.info(f"No valid push tokens for user {user_id}")
+            return
+        
+        # Send via Expo Push API
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                'https://exp.host/--/api/v2/push/send',
+                json=messages,
+                headers={
+                    'Accept': 'application/json',
+                    'Content-Type': 'application/json',
+                },
+                timeout=10.0
+            )
+            
+            if response.status_code == 200:
+                logger.info(f"📱 Push notification sent: {signal_type} on {symbol} to user {user_id}")
+            else:
+                logger.error(f"Push notification failed: {response.status_code}")
         
     except Exception as e:
         logger.error(f"Error sending push notification: {e}")
