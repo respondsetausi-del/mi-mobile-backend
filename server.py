@@ -1934,31 +1934,45 @@ async def reactivate_license(
     if not license:
         raise HTTPException(status_code=404, detail="License key not found")
     
-    if license.get("status") != "used":
+    # Check if license is used (either by status or used field)
+    is_used = license.get("status") == "used" or license.get("used") == True
+    
+    if not is_used:
         return {"message": "License is already available", "status": "available"}
     
     # Get the user who had this license
-    old_user_email = license.get("assigned_to")
+    old_user_email = license.get("assigned_to") or license.get("user_email")
+    old_user_id = license.get("used_by")
     
-    # Update the license to be available again
+    # Update the license to be available again - reset ALL relevant fields
     result = await db.licenses.update_one(
         {"key": license_key.upper().strip()},
         {
             "$set": {
                 "status": "available",
+                "used": False,
+                "used_by": None,
+                "user_email": None,
                 "assigned_to": None,
+                "used_at": None,
                 "reactivated_at": datetime.utcnow(),
                 "reactivated_by": "admin",
-                "previous_user": old_user_email
+                "previous_user": old_user_email,
+                "previous_user_id": str(old_user_id) if old_user_id else None
             }
         }
     )
     
     if result.modified_count > 0:
-        # Optionally update the user who had this license
-        if old_user_email:
+        # Update the user who had this license - remove their license and reset status
+        if old_user_id:
             await db.users.update_one(
-                {"license_key": license_key.upper().strip()},
+                {"_id": old_user_id},
+                {"$set": {"license_key": None, "status": "pending", "payment_status": "unpaid"}}
+            )
+        elif old_user_email:
+            await db.users.update_one(
+                {"email": old_user_email},
                 {"$set": {"license_key": None, "status": "pending", "payment_status": "unpaid"}}
             )
         
