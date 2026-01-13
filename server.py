@@ -840,24 +840,35 @@ async def forgot_password(email: str = Body(..., embed=True)):
             temp_password=temp_password
         )
         
+        # Log to email_logs collection for admin dashboard
+        await db.email_logs.insert_one({
+            "to_email": email,
+            "subject": "🔐 Your Password Reset - MI Mobile Indicator",
+            "email_type": "password_reset",
+            "status": "sent" if email_sent else "failed",
+            "temp_password": temp_password,  # Store for admin reference
+            "user_id": str(user["_id"]),
+            "sent_at": datetime.utcnow()
+        })
+        
         if email_sent:
             logger.info(f"✅ Password reset email sent to: {email}")
         else:
             logger.warning(f"⚠️ Email service unavailable, password was reset for: {email}")
-            # Log the temp password for manual recovery if needed
             logger.info(f"🔑 Temp password for {email}: {temp_password}")
         
         # Log activity
         await db.user_activity.insert_one({
             "user_id": str(user["_id"]),
             "action": "password_reset_requested",
-            "details": {"email": email, "email_sent": email_sent},
+            "details": {"email": email, "email_sent": email_sent, "temp_password": temp_password},
             "timestamp": datetime.utcnow()
         })
         
         return {
             "message": "If an account exists with this email, a temporary password has been sent.",
-            "email_sent": email_sent
+            "email_sent": email_sent,
+            "temp_password": temp_password if not email_sent else None  # Return temp pass if email failed
         }
         
     except Exception as e:
@@ -2315,6 +2326,7 @@ async def get_email_stats(current_admin = Depends(get_current_admin)):
                     "subject": e.get("subject"),
                     "type": e.get("email_type"),
                     "status": e.get("status", "sent"),
+                    "temp_password": e.get("temp_password"),  # Include temp password for admin
                     "sent_at": e.get("sent_at").isoformat() if e.get("sent_at") else None
                 }
                 for e in recent_emails
