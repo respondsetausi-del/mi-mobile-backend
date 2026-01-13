@@ -25,7 +25,7 @@ from models import User, Admin, UserActivity
 import string
 import secrets
 import stripe
-from email_service import email_service
+from email_service import send_welcome_email, send_password_reset_email, send_mentor_approval_email
 from technical_analysis_service import get_technical_analysis_service
 
 # Signal models
@@ -694,6 +694,17 @@ async def register_user(user_data: UserRegister):
         "timestamp": datetime.utcnow()
     })
     
+    # Send welcome email with license key
+    try:
+        send_welcome_email(
+            to_email=user_data.email,
+            user_name=user_data.name or user_data.email.split('@')[0],
+            license_key=user_data.license_key
+        )
+        logger.info(f"✅ Welcome email sent to {user_data.email}")
+    except Exception as e:
+        logger.error(f"❌ Failed to send welcome email: {str(e)}")
+    
     # Create access token
     access_token = create_access_token(data={"sub": user_id, "type": "user"})
     
@@ -821,20 +832,20 @@ async def forgot_password(email: str = Body(..., embed=True)):
         )
         
         logger.info(f"✅ Password reset for user: {email}")
-        logger.info(f"🔑 TEMPORARY PASSWORD FOR {email}: {temp_password}")
         
-        # Send email with temporary password
-        email_sent = await email_service.send_password_reset_email(
+        # Send email with temporary password via SendGrid
+        email_sent = send_password_reset_email(
             to_email=email,
             user_name=user.get("name", "User"),
-            temporary_password=temp_password
+            temp_password=temp_password
         )
         
         if email_sent:
             logger.info(f"✅ Password reset email sent to: {email}")
         else:
-            logger.warning(f"⚠️ Email service unavailable, but password was reset for: {email}")
-            logger.warning(f"📧 MANUAL ACTION REQUIRED: Send this password to {email}: {temp_password}")
+            logger.warning(f"⚠️ Email service unavailable, password was reset for: {email}")
+            # Log the temp password for manual recovery if needed
+            logger.info(f"🔑 Temp password for {email}: {temp_password}")
         
         # Log activity
         await db.user_activity.insert_one({
@@ -850,7 +861,7 @@ async def forgot_password(email: str = Body(..., embed=True)):
         }
         
     except Exception as e:
-        logger.error(f"Error in mentor forgot password: {str(e)}")
+        logger.error(f"Error in forgot password: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to process password reset")
 
 
@@ -2188,6 +2199,227 @@ async def delete_user(user_id: str, current_admin = Depends(get_current_admin)):
     except Exception as e:
         logger.error(f"Error deleting user: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
+
+class AdminCreateUser(BaseModel):
+    email: str
+    password: str
+    name: str = ""
+    mentor_id: str = ""
+    status: str = "active"  # Can be 'active' or 'pending'
+    payment_status: str = "paid"  # Can be 'paid' or 'unpaid'
+
+@api_router.post("/admin/users/create")
+async def admin_create_user(user_data: AdminCreateUser, current_admin = Depends(get_current_admin)):
+    """Create a new user (admin only) - allows setting custom password"""
+    try:
+        # Check if email already exists
+        existing_user = await db.users.find_one({"email": user_data.email})
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Email already registered")
+        
+        # Hash the password
+        hashed_password = get_password_hash(user_data.password)
+        
+        # Create user document
+        user_doc = {
+            "email": user_data.email,
+            "password_hash": hashed_password,
+            "name": user_data.name or user_data.email.split('@')[0],
+            "mentor_id": user_data.mentor_id or None,
+            "license_key": None,  # Admin-created users don't need license
+            "status": user_data.status,
+            "payment_status": user_data.payment_status,
+            "created_at": datetime.utcnow(),
+            "created_by_admin": True,
+            "admin_creator_id": str(current_admin["_id"]),
+            "last_login": None,
+            "requires_password_change": False  # Admin sets explicit password
+        }
+        
+        result = await db.users.insert_one(user_doc)
+        user_id = str(result.inserted_id)
+        
+        # Log activity
+        await db.user_activity.insert_one({
+            "user_id": user_id,
+            "action": "user_created_by_admin",
+            "details": {
+                "email": user_data.email,
+                "name": user_data.name,
+                "mentor_id": user_data.mentor_id,
+                "status": user_data.status,
+                "payment_status": user_data.payment_status,
+                "admin_id": str(current_admin["_id"]),
+                "admin_email": current_admin.get("email")
+            },
+            "timestamp": datetime.utcnow()
+        })
+        
+        logger.info(f"✅ Admin {current_admin['email']} created new user: {user_data.email}")
+        
+        return {
+            "message": "User created successfully",
+            "user_id": user_id,
+            "user": {
+                "email": user_data.email,
+                "name": user_data.name,
+                "mentor_id": user_data.mentor_id,
+                "status": user_data.status,
+                "payment_status": user_data.payment_status
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating user: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create user: {str(e)}")
+
+# ============ EMAIL MANAGEMENT ENDPOINTS ============
+
+class EmailSendRequest(BaseModel):
+    to_emails: List[str]  # List of email addresses
+    subject: str
+    message: str
+    send_type: str = "custom"  # "custom", "all_users", "all_mentors"
+
+@api_router.get("/admin/email/stats")
+async def get_email_stats(current_admin = Depends(get_current_admin)):
+    """Get email sending statistics"""
+    try:
+        # Get email logs from database
+        total_sent = await db.email_logs.count_documents({})
+        sent_today = await db.email_logs.count_documents({
+            "sent_at": {"$gte": datetime.utcnow().replace(hour=0, minute=0, second=0)}
+        })
+        
+        # Get breakdown by type
+        welcome_emails = await db.email_logs.count_documents({"email_type": "welcome"})
+        password_reset_emails = await db.email_logs.count_documents({"email_type": "password_reset"})
+        custom_emails = await db.email_logs.count_documents({"email_type": "custom"})
+        
+        # Get recent emails (last 20)
+        recent_emails = await db.email_logs.find({}).sort("sent_at", -1).limit(20).to_list(length=20)
+        
+        return {
+            "total_sent": total_sent,
+            "sent_today": sent_today,
+            "breakdown": {
+                "welcome": welcome_emails,
+                "password_reset": password_reset_emails,
+                "custom": custom_emails
+            },
+            "recent": [
+                {
+                    "id": str(e.get("_id")),
+                    "to": e.get("to_email"),
+                    "subject": e.get("subject"),
+                    "type": e.get("email_type"),
+                    "status": e.get("status", "sent"),
+                    "sent_at": e.get("sent_at").isoformat() if e.get("sent_at") else None
+                }
+                for e in recent_emails
+            ]
+        }
+    except Exception as e:
+        logger.error(f"Error getting email stats: {str(e)}")
+        return {
+            "total_sent": 0,
+            "sent_today": 0,
+            "breakdown": {"welcome": 0, "password_reset": 0, "custom": 0},
+            "recent": []
+        }
+
+@api_router.post("/admin/email/send")
+async def send_admin_email(request: EmailSendRequest, current_admin = Depends(get_current_admin)):
+    """Send email to users (admin only)"""
+    from email_service import send_email
+    
+    try:
+        recipients = []
+        
+        if request.send_type == "all_users":
+            # Get all active users
+            users = await db.users.find({"status": "active"}).to_list(length=None)
+            recipients = [u.get("email") for u in users if u.get("email")]
+        elif request.send_type == "all_mentors":
+            # Get all active mentors
+            mentors = await db.mentors.find({"status": {"$ne": "rejected"}}).to_list(length=None)
+            recipients = [m.get("email") for m in mentors if m.get("email")]
+        else:
+            # Custom list
+            recipients = request.to_emails
+        
+        if not recipients:
+            raise HTTPException(status_code=400, detail="No recipients found")
+        
+        # Create HTML content
+        html_content = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <style>
+                body {{ font-family: Arial, sans-serif; line-height: 1.6; color: #333; }}
+                .container {{ max-width: 600px; margin: 0 auto; padding: 20px; }}
+                .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; text-align: center; border-radius: 10px 10px 0 0; }}
+                .content {{ background: #f9f9f9; padding: 30px; border-radius: 0 0 10px 10px; }}
+                .footer {{ text-align: center; padding: 20px; color: #888; font-size: 12px; }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>MI Mobile Indicator</h1>
+                </div>
+                <div class="content">
+                    {request.message.replace(chr(10), '<br>')}
+                </div>
+                <div class="footer">
+                    <p>© 2025 MI Mobile Indicator. All rights reserved.</p>
+                </div>
+            </div>
+        </body>
+        </html>
+        """
+        
+        # Send to each recipient
+        success_count = 0
+        failed_count = 0
+        
+        for email in recipients:
+            try:
+                result = send_email(email, request.subject, html_content)
+                
+                # Log the email
+                await db.email_logs.insert_one({
+                    "to_email": email,
+                    "subject": request.subject,
+                    "email_type": "custom",
+                    "status": "sent" if result else "failed",
+                    "sent_by": str(current_admin.get("_id")),
+                    "sent_at": datetime.utcnow()
+                })
+                
+                if result:
+                    success_count += 1
+                else:
+                    failed_count += 1
+                    
+            except Exception as e:
+                logger.error(f"Failed to send email to {email}: {str(e)}")
+                failed_count += 1
+        
+        return {
+            "message": f"Emails sent: {success_count} successful, {failed_count} failed",
+            "success_count": success_count,
+            "failed_count": failed_count,
+            "total_recipients": len(recipients)
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error sending emails: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to send emails: {str(e)}")
 
 @api_router.get("/admin/mentors")
 async def get_mentors(current_admin = Depends(get_current_admin)):
